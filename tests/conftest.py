@@ -3,11 +3,12 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def isolated_data(tmp_path, monkeypatch):
-    """Testler gerçek data/ klasörüne yazmasın."""
-    from app import history
-    from app.beceriler import dosyalar, hafiza, planlayici
-    monkeypatch.setattr(history, "DB_PATH", tmp_path / "jarvis.db")
-    monkeypatch.setattr(hafiza, "DB_PATH", tmp_path / "hafiza.db")
-    monkeypatch.setattr(planlayici, "DB_PATH", tmp_path / "planlayici.db")
+    """Her test kendi geçici veritabanı, cihaz kimliği ve not klasörüyle çalışır; gerçek data/ kullanılmaz."""
+    from app import db, device
+    from app.beceriler import dosyalar
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "jarvis.db")
+    monkeypatch.setattr(device, "DEVICE_PATH", tmp_path / "device.json")
+    device.reset_cache()
     monkeypatch.setattr(dosyalar, "NOTES_DIR", tmp_path / "notlar")
     yield
+    device.reset_cache()

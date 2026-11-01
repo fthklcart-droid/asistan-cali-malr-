@@ -1,29 +1,11 @@
 """Görev listesi ve zamanlı hatırlatmalar (yerel SQLite)."""
 from __future__ import annotations
 
-import sqlite3
-import threading
 from datetime import datetime, timedelta
-from pathlib import Path
 
-from ..config import ROOT
+from .. import db
 
-DB_PATH = ROOT / "data" / "planlayici.db"
 DURUMLAR = {"bekliyor", "devam", "duraklatildi", "bitti"}
-_lock = threading.Lock()
-
-
-def _db(path: Path | None = None) -> sqlite3.Connection:
-    path = path or DB_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=10)
-    conn.execute("""CREATE TABLE IF NOT EXISTS gorev (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, metin TEXT NOT NULL, durum TEXT NOT NULL DEFAULT 'bekliyor',
-        tarih TEXT DEFAULT '', olusturma TEXT NOT NULL)""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS hatirlatma (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, metin TEXT NOT NULL, zaman TEXT NOT NULL,
-        gosterildi INTEGER NOT NULL DEFAULT 0)""")
-    return conn
 
 
 def zaman_coz(ifade: str, simdi: datetime | None = None) -> datetime:
@@ -61,15 +43,15 @@ def gorev_ekle(metin: str, tarih: str = "") -> dict:
         raise ValueError("Görev metni boş.")
     if tarih:
         datetime.strptime(tarih, "%Y-%m-%d")
-    with _lock, _db() as conn:
-        cur = conn.execute("INSERT INTO gorev (metin, tarih, olusturma) VALUES (?, ?, ?)",
+    with db.session() as conn:
+        cur = conn.execute("INSERT INTO todos (metin, tarih, olusturma) VALUES (?, ?, ?)",
                            (metin.strip(), tarih, datetime.now().isoformat(timespec="seconds")))
     return {"no": cur.lastrowid, "metin": metin.strip(), "tarih": tarih}
 
 
 def gorev_listele(hepsi: bool = False) -> dict:
-    with _lock, _db() as conn:
-        q = "SELECT id, metin, durum, tarih FROM gorev" + ("" if hepsi else " WHERE durum != 'bitti'") + " ORDER BY id"
+    with db.session() as conn:
+        q = "SELECT id, metin, durum, tarih FROM todos" + ("" if hepsi else " WHERE durum != 'bitti'") + " ORDER BY id"
         rows = conn.execute(q).fetchall()
     return {"gorevler": [{"no": r[0], "metin": r[1], "durum": r[2], "tarih": r[3]} for r in rows]}
 
@@ -77,16 +59,16 @@ def gorev_listele(hepsi: bool = False) -> dict:
 def gorev_durum(no: int, durum: str) -> dict:
     if durum not in DURUMLAR:
         raise ValueError("Durum: " + ", ".join(sorted(DURUMLAR)))
-    with _lock, _db() as conn:
-        cur = conn.execute("UPDATE gorev SET durum=? WHERE id=?", (durum, int(no)))
+    with db.session() as conn:
+        cur = conn.execute("UPDATE todos SET durum=? WHERE id=?", (durum, int(no)))
     if not cur.rowcount:
         raise ValueError(f"{no} numaralı görev yok.")
     return {"no": no, "durum": durum}
 
 
 def gorev_sil(no: int) -> dict:
-    with _lock, _db() as conn:
-        cur = conn.execute("DELETE FROM gorev WHERE id=?", (int(no),))
+    with db.session() as conn:
+        cur = conn.execute("DELETE FROM todos WHERE id=?", (int(no),))
     return {"silindi": cur.rowcount > 0, "no": no}
 
 
@@ -95,31 +77,31 @@ def hatirlatma_kur(metin: str, zaman: str) -> dict:
     when = zaman_coz(zaman)
     if when < datetime.now() - timedelta(minutes=1):
         raise ValueError("Geçmiş bir zamana hatırlatma kurulamaz.")
-    with _lock, _db() as conn:
-        cur = conn.execute("INSERT INTO hatirlatma (metin, zaman) VALUES (?, ?)",
+    with db.session() as conn:
+        cur = conn.execute("INSERT INTO reminders (metin, zaman) VALUES (?, ?)",
                            (metin.strip(), when.isoformat(timespec="minutes")))
     return {"id": cur.lastrowid, "metin": metin.strip(), "zaman": when.strftime("%d.%m.%Y %H:%M")}
 
 
 def hatirlatma_listele() -> dict:
-    with _lock, _db() as conn:
-        rows = conn.execute("SELECT id, metin, zaman FROM hatirlatma WHERE gosterildi=0 ORDER BY zaman").fetchall()
+    with db.session() as conn:
+        rows = conn.execute("SELECT id, metin, zaman FROM reminders WHERE gosterildi=0 ORDER BY zaman").fetchall()
     return {"hatirlatmalar": [{"id": r[0], "metin": r[1], "zaman": r[2].replace("T", " ")} for r in rows]}
 
 
 def hatirlatma_sil(kimlik: int) -> dict:
-    with _lock, _db() as conn:
-        cur = conn.execute("DELETE FROM hatirlatma WHERE id=?", (int(kimlik),))
+    with db.session() as conn:
+        cur = conn.execute("DELETE FROM reminders WHERE id=?", (int(kimlik),))
     return {"silindi": cur.rowcount > 0, "id": kimlik}
 
 
 def zamani_gelenler(simdi: datetime | None = None) -> list[dict]:
     """Zamanı gelmiş ve henüz gösterilmemiş hatırlatmaları döndürür ve gösterildi işaretler."""
     now = (simdi or datetime.now()).isoformat(timespec="minutes")
-    with _lock, _db() as conn:
-        rows = conn.execute("SELECT id, metin, zaman FROM hatirlatma WHERE gosterildi=0 AND zaman <= ?", (now,)).fetchall()
+    with db.session() as conn:
+        rows = conn.execute("SELECT id, metin, zaman FROM reminders WHERE gosterildi=0 AND zaman <= ?", (now,)).fetchall()
         if rows:
-            conn.executemany("UPDATE hatirlatma SET gosterildi=1 WHERE id=?", [(r[0],) for r in rows])
+            conn.executemany("UPDATE reminders SET gosterildi=1 WHERE id=?", [(r[0],) for r in rows])
     return [{"id": r[0], "metin": r[1], "zaman": r[2]} for r in rows]
 
 
