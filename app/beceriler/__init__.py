@@ -8,9 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any, Callable
 
-import requests
-
-from ..config import base_url
+from .. import api_client
 from . import dosyalar, gorsel, hafiza, konum, planlayici, temel
 
 
@@ -92,14 +90,10 @@ DURUM_METNI = {
 
 
 def _request_action(payload: dict) -> dict:
-    r = requests.post(base_url() + "/actions/request", json=payload, timeout=10)
-    if r.status_code >= 400:
-        try:
-            detail = r.json().get("detail")
-        except ValueError:
-            detail = r.text
-        raise ValueError(f"Onay isteği oluşturulamadı: {detail}")
-    item = r.json()
+    try:
+        item = api_client.post("/api/v1/approvals", payload)
+    except api_client.ApiError as exc:
+        raise ValueError(f"Onay isteği oluşturulamadı: {exc}") from exc
     return {"durum": "Onaylar listesine eklendi; kullanıcı onaylayınca çalışacak.", "ozet": item["action"].get("summary")}
 
 

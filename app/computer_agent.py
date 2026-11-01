@@ -13,6 +13,7 @@ from typing import Callable, Protocol
 
 import anthropic
 
+from . import control, policy, usage
 from .claude_client import DEFAULT_MODEL
 from .config import load_env
 
@@ -121,7 +122,7 @@ def run_agent(
         api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
             return AgentResult("error", "ANTHROPIC_API_KEY ayarlı değil. Ayarlar sekmesinden girin.", 0, 0)
-        client = anthropic.Anthropic(api_key=api_key, timeout=300.0)
+        client = anthropic.Anthropic(api_key=api_key, timeout=300.0, max_retries=3)
     model = os.getenv("ANTHROPIC_MODEL", "").strip() or DEFAULT_MODEL
     effort = os.getenv("JARVIS_AGENT_EFFORT", "").strip() or "high"
     tools = [{"type": "computer_toolset_20260801"}, ASK_USER_TOOL]
@@ -130,9 +131,17 @@ def run_agent(
     actions_done = 0
     last_text = ""
 
+    user_stop = callbacks.should_stop
+
+    def stop_requested() -> bool:
+        return user_stop() or control.engaged()
+
     for turn in range(1, max_turns + 1):
-        if callbacks.should_stop():
-            return AgentResult("stopped", "Kullanıcı görevi durdurdu.", turn - 1, actions_done)
+        if stop_requested():
+            return AgentResult("stopped", "Görev durduruldu (kullanıcı veya acil durdurma).", turn - 1, actions_done)
+        decision = policy.evaluate_model_call("bilgisayar")
+        if not decision.allowed:
+            return AgentResult("stopped", decision.reason, turn - 1, actions_done)
         callbacks.log(f"— Adım {turn}: Claude düşünüyor…")
         try:
             kwargs = dict(model=model, max_tokens=16000, system=SYSTEM_PROMPT, tools=tools,
@@ -161,6 +170,8 @@ def run_agent(
 
         # Yanıt bloklarını (düşünce blokları dahil) değiştirmeden geri gönder.
         messages.append({"role": "assistant", "content": response.content})
+        if getattr(response, "usage", None) is not None:
+            usage.record(getattr(response, "model", None) or model, "bilgisayar", response.usage)
         tool_uses = []
         for block in response.content:
             btype = getattr(block, "type", None)
@@ -186,7 +197,7 @@ def run_agent(
         decision = "yes"
         if to_approve:
             decision = callbacks.approve(to_approve)
-        if decision == "stop" or callbacks.should_stop():
+        if decision == "stop" or stop_requested():
             return AgentResult("stopped", "Kullanıcı görevi durdurdu.", turn, actions_done)
 
         # --- yürütme ---
@@ -208,8 +219,8 @@ def run_agent(
                                        error=True, toolset=is_toolset))
                 failed = True
                 continue
-            if callbacks.should_stop():
-                return AgentResult("stopped", "Kullanıcı görevi durdurdu.", turn, actions_done)
+            if stop_requested():
+                return AgentResult("stopped", "Görev durduruldu (kullanıcı veya acil durdurma).", turn, actions_done)
             callbacks.log("→ " + describe_action(name, args))
             try:
                 out = executor.run(name, args)

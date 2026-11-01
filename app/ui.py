@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                                QSystemTrayIcon, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit,
                                QVBoxLayout, QWidget)
 
-from app import settings_store
+from app import api_client, settings_store
 from app.computer_agent import APPROVAL_MODES
 from app.config import base_url, load_env
 
@@ -273,11 +273,11 @@ class JarvisWindow(QMainWindow):
 
     @staticmethod
     def _post(path, payload, timeout=10):
-        r = requests.post(BASE + path, json=payload, timeout=timeout); r.raise_for_status(); return r.json()
+        return api_client.post(path, payload, timeout=timeout)
 
     @staticmethod
     def _get(path, timeout=5):
-        r = requests.get(BASE + path, timeout=timeout); r.raise_for_status(); return r.json()
+        return api_client.get(path, timeout=timeout)
 
     def request_action(self, payload: dict):
         def done(ok, result):

@@ -11,6 +11,7 @@ from pathlib import Path
 import anthropic
 from pydantic import BaseModel, Field
 
+from .. import policy, usage
 from ..claude_client import DEFAULT_MODEL
 from ..config import ROOT, load_env
 from .dosyalar import guvenli_yol
@@ -25,7 +26,8 @@ def _client() -> anthropic.Anthropic:
     key = os.getenv("ANTHROPIC_API_KEY", "").strip()
     if not key:
         raise ValueError("ANTHROPIC_API_KEY ayarlı değil.")
-    return anthropic.Anthropic(api_key=key, timeout=180.0)
+    policy.require_model_call("gorsel")
+    return anthropic.Anthropic(api_key=key, timeout=180.0, max_retries=3)
 
 
 def _model() -> str:
@@ -56,6 +58,7 @@ def incele(yol: str, soru: str = "") -> dict:
         model=_model(), max_tokens=4000,
         messages=[{"role": "user", "content": [_image_block(yol), {"type": "text", "text": prompt}]}],
     )
+    usage.record(getattr(resp, "model", None) or _model(), "gorsel", resp.usage)
     if resp.stop_reason == "refusal":
         return {"aciklama": "Görsel güvenlik nedeniyle incelenmedi."}
     return {"aciklama": "".join(b.text for b in resp.content if b.type == "text")}
@@ -92,6 +95,7 @@ def fatura_oku(yol: str) -> dict:
                                      "Okuyamadığın değerleri tahmin etme; 0 yaz ve notlar alanında belirt."}]}],
         output_format=Fatura,
     )
+    usage.record(getattr(resp, "model", None) or _model(), "fatura", resp.usage)
     if resp.stop_reason == "refusal" or resp.parsed_output is None:
         raise ValueError("Fatura okunamadı.")
     f: Fatura = resp.parsed_output

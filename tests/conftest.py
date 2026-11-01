@@ -12,3 +12,13 @@ def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setattr(dosyalar, "NOTES_DIR", tmp_path / "notlar")
     yield
     device.reset_cache()
+
+
+@pytest.fixture
+def api():
+    """Kimliği doğrulanmış test istemcisi."""
+    from fastapi.testclient import TestClient
+
+    from app import device
+    from app.server import app
+    return TestClient(app, headers=device.auth_headers())

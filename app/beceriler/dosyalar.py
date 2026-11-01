@@ -27,10 +27,10 @@ class DosyaHatasi(ValueError):
 
 
 def _roots() -> list[Path]:
-    roots = [Path.home(), ROOT / "data"]
-    extra = os.getenv("JARVIS_EXTRA_FOLDERS", "")
-    roots += [Path(p.strip()) for p in extra.split(";") if p.strip()]
-    return [r.resolve() for r in roots if r.exists()]
+    """İzinli kökler: kullanıcının seçtiği çalışma klasörleri (Ayarlar) + JARVIS veri klasörü."""
+    from .. import workspaces
+    roots = workspaces.roots() + [(ROOT / "data").resolve()]
+    return [r for r in roots if r.exists()]
 
 
 def guvenli_yol(yol: str) -> Path:
@@ -42,7 +42,7 @@ def guvenli_yol(yol: str) -> Path:
         p = Path.home() / p
     p = p.resolve()
     if not any(p == r or r in p.parents for r in _roots()):
-        raise DosyaHatasi("Bu konum erişime kapalı. İzinli: kullanıcı klasörünüz (Belgeler, Masaüstü, İndirilenler…).")
+        raise DosyaHatasi("Bu konum çalışma klasörlerinizin dışında. ⚙ Ayarlar > Çalışma klasörleri'nden ekleyebilirsiniz.")
     parts = {x.lower() for x in p.parts}
     if parts & BLOCKED_DIRS:
         raise DosyaHatasi("Sistem veya gizli klasörlere erişilemez.")

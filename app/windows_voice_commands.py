@@ -1,10 +1,9 @@
 """Push-to-talk Turkish Windows voice commands. Uses Google Web Speech for transcription."""
 from __future__ import annotations
 
-import requests
 from PySide6.QtCore import QThread, Signal
 
-from .config import base_url
+from . import api_client
 from .settings_store import device_arg
 
 ALIASES = {
@@ -66,15 +65,14 @@ class WindowsVoiceCommandWorker(QThread):
                 self.unmatched.emit(text)
                 return
             payload = {"action": "launch_app", "app_id": app_id, "description": f"Sesli komutla {app_id} uygulamasını aç"}
-            response = requests.post(base_url() + "/actions/request", json=payload, timeout=8)
-            response.raise_for_status()
+            api_client.post("/api/v1/approvals", payload, timeout=8)
             self.status.emit(f"{app_id} için onay isteği oluşturuldu. Açmak için listeden seçip onaylayın.")
         except sr.UnknownValueError:
             self.error.emit("Konuşma anlaşılamadı. Daha net ve kısa tekrar deneyin.")
         except sr.RequestError as exc:
             self.error.emit(f"Türkçe ses tanıma servisine ulaşılamadı: {exc}. İnternet bağlantısını kontrol edin.")
-        except requests.RequestException as exc:
-            self.error.emit(f"Yerel köprüye ulaşılamadı: {exc}")
+        except api_client.ApiError as exc:
+            self.error.emit(f"Onay isteği oluşturulamadı: {exc}")
         except Exception as exc:
             self.error.emit(f"Sesli komut hatası: {exc}")
 

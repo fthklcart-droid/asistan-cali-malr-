@@ -54,14 +54,16 @@ def test_memory_search_turkish_suffixes():
 
 def test_file_safety(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    (tmp_path / "Belgeler").mkdir()
-    (tmp_path / "Belgeler" / "rapor.txt").write_text("satış raporu", encoding="utf-8")
+    (tmp_path / "Documents").mkdir()  # varsayılan çalışma klasörü olarak otomatik eklenir
+    (tmp_path / "Documents" / "rapor.txt").write_text("satış raporu", encoding="utf-8")
     (tmp_path / ".env").write_text("SECRET=1")
     (tmp_path / "sifreler.txt").write_text("x")
-    assert dosyalar.oku("~/Belgeler/rapor.txt")["icerik"] == "satış raporu"
-    assert dosyalar.listele("~/Belgeler")["adet"] == 1
-    assert dosyalar.ara("~", "rapor")["sonuclar"]
-    for bad in ("~/.env", "~/sifreler.txt", "/etc/passwd", "~/../../etc/passwd"):
+    assert dosyalar.oku("~/Documents/rapor.txt")["icerik"] == "satış raporu"
+    assert dosyalar.listele("~/Documents")["adet"] == 1
+    assert dosyalar.ara("~/Documents", "rapor")["sonuclar"]
+    (tmp_path / "Documents" / "sifreler.txt").write_text("x")
+    # ev klasörünün kökü çalışma klasörü değil; .env, şifre dosyaları ve sistem yolları reddedilir
+    for bad in ("~/.env", "~/sifreler.txt", "~/Documents/sifreler.txt", "/etc/passwd", "~/../../etc/passwd"):
         with pytest.raises(dosyalar.DosyaHatasi):
             dosyalar.oku(bad)
 

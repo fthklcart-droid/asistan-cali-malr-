@@ -12,7 +12,7 @@ from typing import Callable
 
 import anthropic
 
-from . import beceriler, history
+from . import beceriler, control, history, policy, usage
 from .beceriler import hafiza
 from .beceriler.temel import AYLAR, GUNLER
 from .claude_client import DEFAULT_MODEL
@@ -77,7 +77,7 @@ class Sohbet:
         key = os.getenv("ANTHROPIC_API_KEY", "").strip()
         if not key:
             raise RuntimeError("Claude API anahtarı yok. ⚙ Ayarlar sekmesinden ANTHROPIC_API_KEY girin.")
-        return anthropic.Anthropic(api_key=key, timeout=300.0)
+        return anthropic.Anthropic(api_key=key, timeout=300.0, max_retries=3)
 
     def send(
         self,
@@ -88,8 +88,14 @@ class Sohbet:
         should_stop: Callable[[], bool] = lambda: False,
     ) -> str:
         """Mesajı gönderir; akan metni on_text ile iletir; son yanıt metnini döndürür."""
+        try:
+            policy.require_model_call("sohbet")
+        except policy.PolicyDenied as exc:
+            raise RuntimeError(str(exc)) from exc
         client = self._get_client()
         load_env()
+        user_stop = should_stop
+        should_stop = lambda: user_stop() or control.engaged()  # noqa: E731
         model = os.getenv("ANTHROPIC_MODEL", "").strip() or DEFAULT_MODEL
         effort = os.getenv("JARVIS_CHAT_EFFORT", "").strip() or "low"
         tools = SERVER_TOOLS + beceriler.TOOLS
@@ -130,6 +136,8 @@ class Sohbet:
 
             # Yanıtı (düşünce ve sunucu aracı blokları dahil) değiştirmeden geçmişe ekle.
             self.messages.append({"role": "assistant", "content": final.content})
+            if getattr(final, "usage", None) is not None:
+                usage.record(getattr(final, "model", None) or model, "sohbet", final.usage)
 
             if final.stop_reason == "refusal":
                 note = "\n\n(Bu isteğe güvenlik politikası nedeniyle yanıt verilemedi.)"
