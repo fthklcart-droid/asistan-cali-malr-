@@ -1,0 +1,65 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main, ccr-c0b9168f-3ofq2t]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Test ve APK (Android 15/16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android/FK_JARVIS_Android_15_16
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android SDK 36
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Birim testleri
+        run: gradle --no-daemon testReleaseUnitTest
+
+      - name: APK derle (imzalı)
+        run: gradle --no-daemon assembleRelease
+
+      - name: APK doğrula (imza, SDK sürümleri)
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          "$BT/apksigner" verify --print-certs "$APK"
+          "$BT/aapt" dump badging "$APK" | grep -E "^package:|sdkVersion|targetSdkVersion|application-label"
+          "$BT/aapt" dump badging "$APK" | grep -q "sdkVersion:'35'"
+          "$BT/aapt" dump badging "$APK" | grep -q "targetSdkVersion:'36'"
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          mkdir -p out && cp "$APK" "out/FK_JARVIS_${VERSION}.apk"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FK_JARVIS_Android_APK
+          path: android/FK_JARVIS_Android_15_16/out/*.apk
+          if-no-files-found: error
