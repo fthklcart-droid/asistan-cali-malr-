@@ -9,8 +9,11 @@ Test durumu etiketleri:
 - **Sahte** — birim testleri sahte istemci/sunucu ile; gerçek servis bu ortamdan denenmedi.
 - **Denenmedi** — yalnız kod incelemesi; Windows veya hesap gerektirir.
 
-Geliştirme ortamı bir Linux bulut kapsayıcısıdır; Windows'a özgü kısımlar orada çalıştırılamaz ve bazı
-sunuculara ağ politikası nedeniyle erişilemez. Aşağıdaki durumlar bunu dürüstçe yansıtır.
+Geliştirme ortamı bir Linux bulut kapsayıcısıdır; bazı sunuculara ağ politikası nedeniyle erişilemez.
+Ek olarak her commit'te **GitHub Actions `windows-latest`** üzerinde (gerçek Windows Server, Python 3.12):
+tüm testler, `app.doctor`, PyInstaller paketi, paketlenmiş `.exe --selftest`, Inno Setup kurulumunun sessiz
+kurulumu + kurulu `.exe --selftest` + sessiz kaldırma çalıştırılır (`.github/workflows/windows.yml`).
+"Windows CI" etiketi bu ortamda doğrulandığını belirtir (masaüstü oturumu olmadan; fare/ses gibi donanım yok).
 
 ---
 
@@ -129,10 +132,13 @@ UXP eklentisi henüz yok — bkz. [YOL_HARITASI.md](YOL_HARITASI.md).
 | DPI farkındalığı (`SetProcessDpiAwareness`) | `executor.py` | Denenmedi |
 | Onay panelini ekran görüntüsünden gizleme (`SetWindowDisplayAffinity`, `WDA_EXCLUDEFROMCAPTURE`) | `agent_overlay.py` | Denenmedi |
 | Acil durdurma kısayolu Ctrl+Alt+F12 (`pynput`) | `agent_worker.py` | Denenmedi |
-| Bilinen klasörler (`SHGetKnownFolderPath`, OneDrive uyumlu) | `workspaces.py` | Linux yedeği test edildi; Windows yolu denenmedi |
+| Bilinen klasörler (`SHGetKnownFolderPath`, OneDrive uyumlu) | `workspaces.py` | **Windows CI**: gerçek klasör yolları döndü |
 | Çevrimdışı Türkçe ses (`pyttsx3` → SAPI5) | `konusma.py` | Metin temizleme test edildi; ses denenmedi |
 | Bildirim (sistem tepsisi) | `ui.py` | Denenmedi |
 | Masaüstü kısayolu (PowerShell `WScript.Shell`) | `setup_windows.bat` | Denenmedi |
+| Paketlenmiş program (PyInstaller) | `packaging/build_windows.py` | **Windows CI**: `.exe --selftest` — 32 modül, veritabanı, köprü (HTTP + jeton), pencere (10 sayfa) |
+| Kurulum programı (Inno Setup, kullanıcı başına, yönetici izni yok) | `packaging/fk_jarvis.iss` | **Windows CI**: sessiz kurulum, dosya denetimi, kurulu `.exe --selftest`, sessiz kaldırma |
+| COM/pywin32, SAPI sürücüsü, pyautogui, pynput içe aktarma | çeşitli | **Windows CI** (içe aktarma; donanım etkileşimi değil) |
 
 ## 9. Yerel köprü API'si (FK JARVIS'in kendisi)
 

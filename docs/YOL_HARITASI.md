@@ -26,7 +26,7 @@ geçmeden kapatılmaz.
 | 9 | **Android eşleştirme** | Mimari: Android 15/16 | QR ile eşleştirme: cihaz başına ayrı jeton, yalnız `/api/v1` alt kümesi (görev oluştur, onay ver/reddet, panel). Yerel ağ yerine aşağıdaki relay tercih edilir |
 | 10 | **Bulut relay (outbound TLS)** | Mimari: "yerel ajan buluta doğru TLS bağlantısı başlatır" | Bilgisayardan dışarı açılan WebSocket; gelen port açılmaz; kısa ömürlü cihaz jetonu |
 | 11 | **Telemetri ve hata kurtarma** | Brif §7 | Yapılandırılmış günlük (JSON), ajan adım sınırı/zaman aşımı ayarları. (Yapıldı: açılışta yarım kalan `running`/`planning` görevler `failed` yapılır — `tasks.recover_interrupted`) |
-| 12 | **Kaldırma betiği ve EXE testi** | Brif teslimleri | `uninstall_windows.bat` (kısayol + .venv; `data/` isteğe bağlı yedeklenir); `build_exe.bat` çıktısının temiz Windows'ta denenmesi |
+| 12 | ~~Kaldırma ve EXE testi~~ **yapıldı** | Brif teslimleri | Inno Setup kurulum/kaldırma + PyInstaller paketi her commit'te Windows CI'da kurulup sınanıyor. Kalan: gerçek kullanıcı masaüstünde (mikrofon, ekran, Photoshop) el ile deneme |
 | 13 | **3B avatar** | Mimari modül tablosu | Qt Quick 3D; şimdilik 2B "Holographic Core" |
 
 ## Bilinen sınırlar

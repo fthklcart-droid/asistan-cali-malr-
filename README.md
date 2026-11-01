@@ -4,7 +4,14 @@ Türkçe konuşan kişisel masaüstü asistanı: Claude ile sohbet ve internet a
 fare/klavyeyle kullanması (onaylı)**, Gemini Live sesli görüşme, hafıza, görev/hatırlatma, dosya ve fatura
 okuma, WhatsApp/YouTube/Photoshop bağlayıcıları. Tüm beceriler: [docs/BECERILER.md](docs/BECERILER.md).
 
-## Hızlı başlangıç (3 adım)
+## En kolay yol: kurulum programı
+
+GitHub'da **Actions → "Windows paketi" → son başarılı çalıştırma → Artifacts → FK_JARVIS_Kurulum** indirin,
+ZIP'ten çıkan `FK_JARVIS_Kurulum_<sürüm>.exe`'yi çalıştırın. Python gerekmez, yönetici izni istemez; Başlat menüsüne
+ve (isterseniz) masaüstüne kısayol koyar, Denetim Masası'ndan kaldırılabilir. Anahtarları ⚙ Ayarlar'dan girin.
+Kendi bilgisayarınızda üretmek için: `build_exe.bat` (Inno Setup 6 kuruluysa kurulum programını da üretir).
+
+## Kaynak koddan kurulum (3 adım)
 
 1. **Projeyi indirin:** GitHub'da **Code → Download ZIP**, ZIP'i örn. `C:\FK_JARVIS` klasörüne çıkarın.
    > Klasörü OneDrive ile eşitlenen bir yere (Masaüstü/Belgeler) koymamanız önerilir; `.venv` klasörü büyüktür.
@@ -79,9 +86,11 @@ Sesli özellikler için: **Ayarlar → Gizlilik ve güvenlik → Mikrofon** → 
 - **Kaldırma:** uygulamayı kapatın, masaüstündeki "FK JARVIS" kısayolunu ve proje klasörünü silin. Önce `data\` klasörünü
   yedeklemek isteyebilirsiniz. YouTube bağlandıysa erişimi https://myaccount.google.com/permissions adresinden kaldırın.
 
-## Tek dosyalık program (EXE)
+## Paketlenmiş program (EXE)
 
-`build_exe.bat` → `dist\FK JARVIS\FK JARVIS.exe`. Klasörün tamamı başka bir bilgisayara kopyalanabilir; Python gerekmez. Anahtarlar ⚙ Ayarlar'dan girilir.
+`build_exe.bat` → `dist\FK JARVIS\FK JARVIS.exe` (+ Inno Setup 6 varsa `dist\installer\FK_JARVIS_Kurulum_<sürüm>.exe`).
+Paket, oluşturulduktan sonra `FK JARVIS.exe --selftest` ile kendini sınar. Klasörün tamamı başka bir bilgisayara
+kopyalanabilir; Python gerekmez.
 
 ## Gelişmiş
 
