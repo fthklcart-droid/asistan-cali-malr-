@@ -140,7 +140,21 @@ UXP eklentisi henüz yok — bkz. [YOL_HARITASI.md](YOL_HARITASI.md).
 | Kurulum programı (Inno Setup, kullanıcı başına, yönetici izni yok) | `packaging/fk_jarvis.iss` | **Windows CI**: sessiz kurulum, dosya denetimi, kurulu `.exe --selftest`, sessiz kaldırma |
 | COM/pywin32, SAPI sürücüsü, pyautogui, pynput içe aktarma | çeşitli | **Windows CI** (içe aktarma; donanım etkileşimi değil) |
 
-## 9. Yerel köprü API'si (FK JARVIS'in kendisi)
+## 9. Android uygulaması (FK JARVIS Mobil)
+
+| | |
+|---|---|
+| Kaynak | `android/FK_JARVIS_Android_15_16` (Kotlin, Compose; minSdk 35, targetSdk 36) |
+| Claude | `api.anthropic.com/v1/messages`, ham HTTPS (OkHttp), `anthropic-version: 2026-10-21`; web_search/web_fetch sunucu araçları |
+| Anahtar | Kullanıcı girer; Android Keystore AES-GCM ile şifreli; APK'da anahtar yok |
+| Ses | Android konuşma tanıma (tr-TR, sistem ekranı) ve TextToSpeech (tr-TR) |
+| Hatırlatma | AlarmManager (kesin olmayan) + bildirim kanalı; açılışta yeniden kurulur |
+| Bilgisayar eşleştirme | **Yok** (köprü yalnız loopback; relay gerekli) |
+
+Test durumu: **CI (Ubuntu, Android SDK 36)** — birim testleri (fiyat), imzalı `assembleRelease`, `apksigner verify`,
+`aapt` ile minSdk 35 / targetSdk 36 doğrulaması. Gerçek telefonda ve geçerli Claude anahtarıyla **denenmedi**.
+
+## 10. Yerel köprü API'si (FK JARVIS'in kendisi)
 
 Tüm uç noktalar ve örnekler: [API.md](API.md). Test durumu: **Canlı** — `TestClient` testleri (73) ve gerçek
 Uvicorn sunucusuna HTTP ile uçtan uca kontrol (jetonsuz 401, görev oluşturma, panel özeti); arayüz ekransız

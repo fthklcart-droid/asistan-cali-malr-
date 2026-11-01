@@ -113,4 +113,6 @@ build_exe.bat                              &rem EXE paketi
 | [docs/BECERILER.md](docs/BECERILER.md) | Sayfalar ve sohbet becerileri |
 | [CLAUDE.md](CLAUDE.md) | Bu depoda Claude Code ile geliştirme kuralları |
 
-Android kaynakları: `android/` (prototip; masaüstüyle eşleştirme henüz yok).
+**Android (15/16):** `android/FK_JARVIS_Android_15_16` — Claude sohbeti, sesli soru/yanıt, görev ve hatırlatmalar.
+APK: GitHub › Actions › **Android APK** › Artifacts. Ayrıntı: [android/…/README_TR.md](android/FK_JARVIS_Android_15_16/README_TR.md).
+Bilgisayarla eşleştirme henüz yok.

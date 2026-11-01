@@ -23,7 +23,7 @@ geçmeden kapatılmaz.
 | 6 | **Çıktı doğrulama ve sürümleme** | Brif §7: "dosya sürümleme, çıktı doğrulama, hata kurtarma" | Ajan/Photoshop çıktılarının görev kaydına eklenmesi, üzerine yazmadan önce kopya, beklenen dosyanın var olduğunun kontrolü |
 | 7 | **Photoshop UXP paneli** | Brif §4 | Photoshop içinde panel; köprüye `X-Jarvis-Token` ile bağlanır; katman/belge bilgisi ve geri alınabilir işlemler. Mevcut COM komutları yedek olarak kalır |
 | 8 | **Premiere / CapCut** | Brif §5 | Premiere için ExtendScript/UXP araştırması; CapCut için yalnız Computer Use (deneysel olarak etiketli) |
-| 9 | **Android eşleştirme** | Mimari: Android 15/16 | QR ile eşleştirme: cihaz başına ayrı jeton, yalnız `/api/v1` alt kümesi (görev oluştur, onay ver/reddet, panel). Yerel ağ yerine aşağıdaki relay tercih edilir |
+| 9 | **Android eşleştirme** (uygulamanın kendisi yapıldı: bağımsız Claude sohbeti, ses, görev/hatırlatma, APK CI) | Mimari: Android 15/16 | QR ile eşleştirme: cihaz başına ayrı jeton, yalnız `/api/v1` alt kümesi (görev oluştur, onay ver/reddet, panel). Yerel ağ yerine aşağıdaki relay tercih edilir |
 | 10 | **Bulut relay (outbound TLS)** | Mimari: "yerel ajan buluta doğru TLS bağlantısı başlatır" | Bilgisayardan dışarı açılan WebSocket; gelen port açılmaz; kısa ömürlü cihaz jetonu |
 | 11 | **Telemetri ve hata kurtarma** | Brif §7 | Yapılandırılmış günlük (JSON), ajan adım sınırı/zaman aşımı ayarları. (Yapıldı: açılışta yarım kalan `running`/`planning` görevler `failed` yapılır — `tasks.recover_interrupted`) |
 | 12 | ~~Kaldırma ve EXE testi~~ **yapıldı** | Brif teslimleri | Inno Setup kurulum/kaldırma + PyInstaller paketi her commit'te Windows CI'da kurulup sınanıyor. Kalan: gerçek kullanıcı masaüstünde (mikrofon, ekran, Photoshop) el ile deneme |
