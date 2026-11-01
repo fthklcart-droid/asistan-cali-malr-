@@ -29,12 +29,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
+      # Çalıştırıcıda Android SDK hazır kurulu ($ANDROID_HOME); yalnız gereken platform/derleme araçları eklenir.
       - name: Android SDK 36
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          SDKM="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin | sort -V | tail -1)/sdkmanager"
+          echo "sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
