@@ -10,6 +10,7 @@ Uç noktalar:
 from __future__ import annotations
 
 import time
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
@@ -24,7 +25,15 @@ from .models import ActionRequest, ApprovalDecision, TaskRequest
 load_env()
 VERSION = "0.3.0"
 STARTED = time.time()
-app = FastAPI(title="FK JARVIS Local Bridge", version=VERSION)
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    tasks.recover_interrupted()  # önceki oturumdan 'çalışıyor' kalan görevler
+    yield
+
+
+app = FastAPI(title="FK JARVIS Local Bridge", version=VERSION, lifespan=lifespan)
 v1 = APIRouter(prefix="/api/v1")
 
 PUBLIC_PATHS = {"/health"}

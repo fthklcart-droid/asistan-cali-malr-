@@ -87,3 +87,18 @@ def test_registry_consistency():
     got = []
     beceriler.run_tool("bilgisayar_gorevi", {"gorev": "Not Defteri'ni aç"}, got.append)
     assert got == ["Not Defteri'ni aç"]
+
+
+def test_geocoding_falls_back_when_nominatim_fails(monkeypatch):
+    from app.beceriler import konum
+    calls = []
+
+    def fake_get(url, params, timeout=15):
+        calls.append(url)
+        if "nominatim" in url:
+            raise ConnectionError("429 Too Many Requests")
+        return {"results": [{"name": "İstanbul", "admin1": "İstanbul", "country": "Türkiye",
+                             "latitude": 41.01, "longitude": 28.97}]}
+    monkeypatch.setattr(konum, "_get", fake_get)
+    r = konum.konum_coz("İstanbul")
+    assert r["enlem"] == 41.01 and "Türkiye" in r["ad"] and len(calls) == 2

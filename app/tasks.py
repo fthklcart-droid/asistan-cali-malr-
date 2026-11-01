@@ -171,3 +171,22 @@ def counts() -> dict:
     out.update({r[0]: r[1] for r in rows})
     out["active"] = sum(out[s] for s in ACTIVE)
     return out
+
+
+def recover_interrupted(reason: str = "Uygulama kapanırken görev yarıda kaldı") -> int:
+    """Açılışta çağrılır: önceki oturumda 'running'/'planning' kalan görevleri 'failed' yapar.
+
+    Bu görevlerin süreci artık yok (ajan iş parçacığı ve Claude isteği uygulamayla birlikte sonlandı);
+    sonsuza dek 'çalışıyor' görünmeleri yanıltıcı olur. 'failed' görevler Görev Panosu'ndan yeniden planlanabilir.
+    """
+    n = 0
+    for status in ("running", "planning"):
+        for t in list_tasks(status=status, limit=1000):
+            try:
+                transition(t["id"], "failed", reason, error=reason)
+                n += 1
+            except TaskError:
+                pass
+    if n:
+        audit.record("yarim_gorevler_kurtarildi", "sistem", {"count": n}, "sistem")
+    return n

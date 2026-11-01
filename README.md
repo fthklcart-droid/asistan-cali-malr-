@@ -28,6 +28,16 @@ Sonra **masaüstündeki FK JARVIS kısayolu** veya **`run_windows.bat`** ile ba�
 - **▣ Kreatif Stüdyo → Bilgisayarda yaptır:** "Not Defteri'ni aç ve 'Merhaba' yaz". Pencere küçülür, sağ üstte onay paneli çıkar; her adımı **Onayla** ile ilerletin.
   Acil durdurma: **Ctrl+Alt+F12**, panelde **DURDUR** veya fareyi ekranın sol üst köşesine götürün.
 
+## Kontrol merkezi
+
+- **⌂ Genel Bakış:** aktif görevler, onay bekleyenler, bugünkü Claude maliyeti / bütçe, denetim zinciri durumu, son görevler.
+- **☰ Görev Panosu:** her görevin planı, sonucu, bağlı onayları ve adım adım zaman çizelgesi; Planla / Bilgisayarda yaptır / İptal.
+- **■ ACİL DURDUR** (sol alt): tüm otomasyonu durdurur — bekleyen onaylar iptal, çalışan görevler durdurulur, yeni işlem
+  kabul edilmez. Aynı düğmeyle kaldırılır.
+- **⚙ Ayarlar:** API anahtarları, mikrofon/hoparlör, uygulama yolları, **çalışma klasörleri** (JARVIS yalnız buradaki dosyaları
+  okuyabilir) ve **günlük Claude bütçesi**.
+- **◷ Geçmiş › Denetim kaydı:** güvenlikle ilgili her olay, değiştirilemez (hash zincirli) kayıt; "Zinciri doğrula".
+
 > Windows SmartScreen "Windows bilgisayarınızı korudu" uyarısı verirse **Ek bilgi → Yine de çalıştır** deyin.
 
 ## Uygulama yolları
@@ -57,6 +67,18 @@ Sesli özellikler için: **Ayarlar → Gizlilik ve güvenlik → Mikrofon** → 
 | Sesli yanıt Türkçe okumuyor | Ayarlar > Saat ve dil > Dil ve bölge > Türkçe > Dil seçenekleri > **Konuşma** paketini yükleyin |
 | Bilgisayar kontrolü yanlış yere tıklıyor | Windows ekran ölçeğini değiştirdiyseniz uygulamayı yeniden başlatın; tek monitörde çalıştırın (birincil ekran kullanılır) |
 
+## Yedekleme, taşıma ve kaldırma
+
+```bat
+.venv\Scripts\python.exe -m app.db backup        &rem data\yedekler\jarvis-TARİH.db (uygulama açıkken de güvenli)
+.venv\Scripts\python.exe -m app.db verify        &rem denetim kaydı bütünlüğü
+.venv\Scripts\python.exe -m app.db info          &rem şema sürümü ve kayıt sayıları
+```
+
+- **Taşıma:** yeni bilgisayara projeyi kurun, sonra eski `data\` klasörünü ve `.env` dosyasını kopyalayın.
+- **Kaldırma:** uygulamayı kapatın, masaüstündeki "FK JARVIS" kısayolunu ve proje klasörünü silin. Önce `data\` klasörünü
+  yedeklemek isteyebilirsiniz. YouTube bağlandıysa erişimi https://myaccount.google.com/permissions adresinden kaldırın.
+
 ## Tek dosyalık program (EXE)
 
 `build_exe.bat` → `dist\FK JARVIS\FK JARVIS.exe`. Klasörün tamamı başka bir bilgisayara kopyalanabilir; Python gerekmez. Anahtarlar ⚙ Ayarlar'dan girilir.
@@ -71,4 +93,15 @@ Sesli özellikler için: **Ayarlar → Gizlilik ve güvenlik → Mikrofon** → 
 build_exe.bat                              &rem EXE paketi
 ```
 
-Mimari, güvenlik sınırları ve yol haritası: [README_TR.md](README_TR.md), [BASLANGIC_TR.md](BASLANGIC_TR.md), [docs/](docs/). Android kaynakları: `android/`.
+## Belgeler
+
+| Belge | İçerik |
+|---|---|
+| [docs/MIMARI.md](docs/MIMARI.md) | Süreç modeli, katmanlar, veritabanı şeması, görev yaşam döngüsü, güvenlik modeli |
+| [docs/API.md](docs/API.md) | Yerel API (v1) uç noktaları, kimlik doğrulama, örnekler |
+| [docs/ENTEGRASYONLAR.md](docs/ENTEGRASYONLAR.md) | Her dış servis ve Windows entegrasyonu; nasıl test edildiği |
+| [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) | Tamamlanan aşamalar ve sıradaki işler |
+| [docs/BECERILER.md](docs/BECERILER.md) | Sayfalar ve sohbet becerileri |
+| [CLAUDE.md](CLAUDE.md) | Bu depoda Claude Code ile geliştirme kuralları |
+
+Android kaynakları: `android/` (prototip; masaüstüyle eşleştirme henüz yok).

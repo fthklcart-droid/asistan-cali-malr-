@@ -224,3 +224,37 @@ def backup(target: Path) -> Path:
     finally:
         dst.close(); src.close()
     return target
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Bakım komutları:
+        python -m app.db info              şema sürümü ve tablo satır sayıları
+        python -m app.db backup [hedef]    tutarlı yedek (varsayılan: data/yedekler/jarvis-YYYYMMDD-HHMMSS.db)
+        python -m app.db verify            denetim kaydı zincirini doğrular
+    """
+    import sys
+    args = list(sys.argv[1:] if argv is None else argv)
+    cmd = args[0] if args else "info"
+    if cmd == "info":
+        with session(write=False) as conn:
+            print(f"Veritabanı: {DB_PATH}\nŞema sürümü: {conn.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]}")
+            for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"):
+                print(f"  {name:16s} {conn.execute(f'SELECT COUNT(*) FROM {name}').fetchone()[0]:>8} satır")
+        return 0
+    if cmd == "backup":
+        target = Path(args[1]) if len(args) > 1 else \
+            Path(DB_PATH).parent / "yedekler" / f"jarvis-{datetime.now():%Y%m%d-%H%M%S}.db"
+        print(f"Yedek alındı: {backup(target)}")
+        return 0
+    if cmd == "verify":
+        from . import audit
+        result = audit.verify()
+        print(("✔ Denetim zinciri sağlam" if result["ok"] else f"✘ Zincir {result['broken_at']}. kayıtta bozuk")
+              + f" ({result['entries']} kayıt)")
+        return 0 if result["ok"] else 1
+    print(main.__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

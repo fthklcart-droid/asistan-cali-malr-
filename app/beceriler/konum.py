@@ -36,19 +36,22 @@ def _get(url: str, params: dict, timeout: int = 15) -> dict | list:
 
 
 def konum_coz(yer: str) -> dict:
-    """Adres/yer adı -> koordinat."""
-    data = _get("https://nominatim.openstreetmap.org/search",
-                {"q": yer, "format": "jsonv2", "limit": 1, "accept-language": "tr"})
-    if not data:
-        geo = _get("https://geocoding-api.open-meteo.com/v1/search", {"name": yer, "count": 1, "language": "tr"})
-        res = (geo.get("results") or []) if isinstance(geo, dict) else []
-        if not res:
-            raise ValueError(f"Konum bulunamadı: {yer}")
-        r = res[0]
-        return {"ad": ", ".join(x for x in (r.get("name"), r.get("admin1"), r.get("country")) if x),
-                "enlem": r["latitude"], "boylam": r["longitude"]}
-    r = data[0]
-    return {"ad": r.get("display_name", yer), "enlem": float(r["lat"]), "boylam": float(r["lon"])}
+    """Adres/yer adı -> koordinat. Önce Nominatim (adres düzeyi), hata veya sonuç yoksa Open-Meteo (şehir düzeyi)."""
+    try:
+        data = _get("https://nominatim.openstreetmap.org/search",
+                    {"q": yer, "format": "jsonv2", "limit": 1, "accept-language": "tr"})
+    except Exception:  # hız sınırı (429), kesinti veya ağ hatası: yedek servise geç
+        data = []
+    if data:
+        r = data[0]
+        return {"ad": r.get("display_name", yer), "enlem": float(r["lat"]), "boylam": float(r["lon"])}
+    geo = _get("https://geocoding-api.open-meteo.com/v1/search", {"name": yer, "count": 1, "language": "tr"})
+    res = (geo.get("results") or []) if isinstance(geo, dict) else []
+    if not res:
+        raise ValueError(f"Konum bulunamadı: {yer}")
+    r = res[0]
+    return {"ad": ", ".join(x for x in (r.get("name"), r.get("admin1"), r.get("country")) if x),
+            "enlem": r["latitude"], "boylam": r["longitude"]}
 
 
 def hava_durumu(yer: str, gun: int = 1) -> dict:

@@ -4,7 +4,8 @@
 
 | Sayfa | Ne yapar |
 |---|---|
-| ⌂ **Genel Bakış** | Holographic Core paneli, canlı servis kartları (Claude, Gemini, Windows ajanı, Android), hızlı komut kutusu, bugünün görevleri ve bekleyen onaylar. Çekirdek, ses görüşmesi veya bilgisayar kontrolü sırasında mor parlar. |
+| ⌂ **Genel Bakış** | Holographic Core paneli, canlı metrikler (aktif görev, onay bekleyen, bugünkü maliyet/bütçe, denetim zinciri), ACİL DURDUR, canlı servis kartları (Claude, Gemini, Windows ajanı, Android), hızlı komut kutusu, bugünün görevleri ve bekleyen onaylar. Çekirdek, ses görüşmesi veya bilgisayar kontrolü sırasında mor parlar. |
+| ☰ **Görev Panosu** | Tüm görevler; seçilen görevin planı, sonucu, bağlı onayları ve zaman çizelgesi. Planla / Bilgisayarda yaptır / İptal. |
 | ◉ **Asistan Merkezi** | Claude ile Türkçe sohbet; yanıt kelime kelime akar. İnternette arama/sayfa okuma ve aşağıdaki becerileri kendisi kullanır. 🎤 ile sesli soru, 🔊 ile sesli yanıt. |
 | ◌ **Sesli Komutlar** | Gemini Live sesli görüşme ve kısa Windows sesli komutu; konuşma kaydı. |
 | ▣ **Kreatif Stüdyo** | *Claude ile planla* ve *Bilgisayarda yaptır* (Claude ekranı görür, fare/klavye kullanır). Uygulama açma düğmeleri ve Photoshop güvenli komutları. |

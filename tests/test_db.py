@@ -92,3 +92,12 @@ def test_device_identity_is_stable():
     device.reset_cache()
     assert device.token() == first and len(first) >= 40
     assert device.check(first) and not device.check("yanlış") and not device.check(None)
+
+
+def test_maintenance_cli(tmp_path, capsys):
+    history.log("x", "y")
+    audit.record("deneme")
+    assert db.main(["info"]) == 0 and "events" in capsys.readouterr().out
+    assert db.main(["backup", str(tmp_path / "b.db")]) == 0 and (tmp_path / "b.db").exists()
+    assert db.main(["verify"]) == 0 and "sağlam" in capsys.readouterr().out
+    assert db.main(["bilinmeyen"]) == 2

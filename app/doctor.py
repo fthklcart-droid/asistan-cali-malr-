@@ -67,6 +67,17 @@ def main() -> int:
     print(f"{OK} Köprü portu: {port()}")
 
     try:
+        from . import audit, db
+        print(f"{OK} Veritabanı: şema sürümü {db.schema_version()} ({db.DB_PATH})")
+        chain = audit.verify()
+        print(f"{OK if chain['ok'] else FAIL} Denetim zinciri: "
+              + (f"sağlam ({chain['entries']} kayıt)" if chain["ok"] else f"{chain['broken_at']}. kayıtta bozuk"))
+        problems += 0 if chain["ok"] else 1
+    except Exception as exc:
+        print(f"{FAIL} Veritabanı açılamadı: {exc}")
+        problems += 1
+
+    try:
         from .desktop import app_status
         for app_id, path in app_status().items():
             print(f"{OK if path else WARN} {app_id}: {path or 'bulunamadı (config/apps.json içine yolu yazın)'}")

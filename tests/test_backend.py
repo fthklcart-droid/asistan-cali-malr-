@@ -182,3 +182,14 @@ def test_dashboard_aggregates(api):
     assert len(d["recent_tasks"]) == 2
     s = api.get("/api/v1/system").json()
     assert s["device_id"] and s["version"]
+
+
+def test_interrupted_tasks_are_recovered_on_startup():
+    t = tasks.create("Yarıda kalacak görev")
+    tasks.transition(t["id"], "running")
+    keep = tasks.create("Sırada bekleyen")
+    with TestClient(app):  # 'with' bloğu uygulama açılışını (lifespan) çalıştırır
+        pass
+    assert tasks.get(t["id"])["status"] == "failed" and "yarıda" in tasks.get(t["id"])["error"]
+    assert tasks.get(keep["id"])["status"] == "queued"
+    assert audit.recent(1)[0]["event"] == "yarim_gorevler_kurtarildi"
