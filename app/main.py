@@ -88,11 +88,20 @@ def _fatal(message: str) -> None:
     print(message, file=sys.stderr)
 
 
-if __name__ == "__main__":
+def cli(argv: list[str] | None = None) -> int:
+    """Komut satırı girişi. `--selftest [rapor.json]` kendi kendini sınar (paket doğrulaması için)."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--selftest":
+        from .selftest import run
+        return run(args[1] if len(args) > 1 else None)
     try:
-        sys.exit(main())
+        return main()
     except SystemExit:
         raise
     except Exception as exc:
         _fatal(f"FK JARVIS başlatılamadı: {type(exc).__name__}: {exc}")
-        sys.exit(1)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(cli())

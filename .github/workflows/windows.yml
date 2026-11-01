@@ -1,0 +1,102 @@
+name: Windows paketi
+
+on:
+  push:
+    branches: [main, ccr-c0b9168f-3ofq2t]
+    paths-ignore: ["**.md", "android/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, derle, kur, sına (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: "1"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Paketleri kur
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "pyinstaller>=6.10"
+
+      - name: Testler (Windows'ta)
+        run: python -m pytest -q
+
+      - name: Kurulum kontrolü (app.doctor)
+        run: python -m app.doctor
+
+      - name: Inno Setup 6
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Derle (PyInstaller + Inno Setup)
+        run: python packaging/build_windows.py --installer
+
+      - name: Paketlenmiş .exe — kendi kendini sınama
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "selftest-dist.json"
+          $p = Start-Process -FilePath "dist\FK JARVIS\FK JARVIS.exe" -ArgumentList "--selftest", "`"$report`"" -Wait -PassThru
+          if (Test-Path $report) { Get-Content $report -Encoding utf8 }
+          if ($p.ExitCode -ne 0) { throw "Paketlenmiş .exe kendi kendini sınamada başarısız (çıkış kodu $($p.ExitCode))" }
+
+      - name: Kurulumu sessiz kur, kurulu sürümü sına, kaldır
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "dist\installer\FK_JARVIS_Kurulum_*.exe" | Select-Object -First 1
+          $p = Start-Process $installer.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/TASKS=desktopicon" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Kurulum başarısız ($($p.ExitCode))" }
+          $app = Join-Path $env:LOCALAPPDATA "Programs\FK JARVIS"
+          foreach ($f in @("FK JARVIS.exe", ".env", ".env.example", "config\apps.example.json", "unins000.exe")) {
+            if (-not (Test-Path (Join-Path $app $f))) { throw "Kurulumda eksik: $f" }
+          }
+          $report = Join-Path $env:RUNNER_TEMP "selftest-installed.json"
+          $p = Start-Process (Join-Path $app "FK JARVIS.exe") -ArgumentList "--selftest", "`"$report`"" -Wait -PassThru
+          if (Test-Path $report) { Get-Content $report -Encoding utf8 }
+          if ($p.ExitCode -ne 0) { throw "Kurulu .exe kendi kendini sınamada başarısız" }
+          $p = Start-Process (Join-Path $app "unins000.exe") -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Kaldırma başarısız ($($p.ExitCode))" }
+          Start-Sleep -Seconds 3
+          if (Test-Path (Join-Path $app "FK JARVIS.exe")) { throw "Kaldırmadan sonra program dosyası kaldı" }
+          Write-Host "Kur / sına / kaldır: başarılı"
+
+      - name: Taşınabilir ZIP
+        shell: pwsh
+        run: Compress-Archive -Path "dist\FK JARVIS" -DestinationPath "dist\FK_JARVIS_Tasinabilir.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FK_JARVIS_Kurulum
+          path: dist/installer/FK_JARVIS_Kurulum_*.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FK_JARVIS_Tasinabilir
+          path: dist/FK_JARVIS_Tasinabilir.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-raporlari
+          path: ${{ runner.temp }}/selftest-*.json
+          if-no-files-found: ignore
