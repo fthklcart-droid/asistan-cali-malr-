@@ -24,3 +24,15 @@ def test_write_env_keeps_comments(tmp_path, monkeypatch):
 
 def test_tts_cleanup():
     assert temizle("**Merhaba** [site](https://x.com) 😀") == "Merhaba site"
+
+
+def test_settings_change_is_audited_without_values(tmp_path, monkeypatch):
+    from app import audit
+    env = tmp_path / ".env"
+    env.write_text("ANTHROPIC_API_KEY=\n", encoding="utf-8")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    settings_store.write_env({"ANTHROPIC_API_KEY": "sk-ant-gizli-deger"}, path=env)
+    entry = audit.recent(1)[0]
+    assert entry["event"] == "ayarlar_degisti" and "ANTHROPIC_API_KEY" in entry["data"]
+    assert "sk-ant-gizli-deger" not in entry["data"]
+    monkeypatch.delenv("ANTHROPIC_API_KEY")

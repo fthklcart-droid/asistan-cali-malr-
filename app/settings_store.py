@@ -44,6 +44,7 @@ def _quote(value: str) -> str:
 def write_env(values: dict[str, str], path: Path | None = None) -> None:
     """Var olan satırları/yorumları koruyarak .env dosyasını günceller ve süreç ortamına uygular."""
     path = path or config.ENV_PATH
+    before = {k: os.getenv(k, "") for k in values}
     if path.exists():
         lines = path.read_text(encoding="utf-8-sig").splitlines()
     elif config.ENV_EXAMPLE_PATH.exists():
@@ -61,6 +62,10 @@ def write_env(values: dict[str, str], path: Path | None = None) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     for key, value in values.items():
         os.environ[key] = value.strip()
+    changed = sorted(k for k, v in values.items() if before.get(k, "") != v.strip())
+    if changed:
+        from . import audit  # yalnızca değişen ayarların ADLARI yazılır, değerleri asla
+        audit.record("ayarlar_degisti", ".env", {"keys": changed})
 
 
 def read_apps() -> dict[str, str]:

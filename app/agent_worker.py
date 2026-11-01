@@ -15,9 +15,11 @@ class AgentWorker(QThread):
     question = Signal(str)
     finished_result = Signal(object)  # AgentResult
 
-    def __init__(self, task: str, approval_mode: str, max_turns: int, executor_factory=None, parent=None):
+    def __init__(self, task: str, approval_mode: str, max_turns: int, executor_factory=None, parent=None,
+                 task_id: str | None = None):
         super().__init__(parent)
         self.task = task
+        self.task_id = task_id
         self.approval_mode = approval_mode
         self.max_turns = max_turns
         self.executor_factory = executor_factory
@@ -39,6 +41,22 @@ class AgentWorker(QThread):
     # --- AgentCallbacks ---
     def log(self, text: str) -> None:
         self.log_line.emit(text)
+        # Görev zaman çizelgesine yalnız anlamlı satırlar yazılır (eylemler, Claude notları, hatalar)
+        if self.task_id and (text.startswith(("→", "Claude:", "  !", "Siz:"))):
+            self._report("event", type="agent", message=text.strip())
+
+    def _report(self, kind: str, **payload) -> None:
+        """Görev durumunu köprüye bildirir; köprüye ulaşılamazsa ajan yine çalışmaya devam eder."""
+        if not self.task_id:
+            return
+        from . import api_client
+        try:
+            if kind == "event":
+                api_client.post(f"/api/v1/tasks/{self.task_id}/events", payload)
+            else:
+                api_client.post(f"/api/v1/tasks/{self.task_id}/status", payload)
+        except Exception:
+            pass
 
     def should_stop(self) -> bool:
         return self._stop.is_set()
@@ -73,6 +91,7 @@ class AgentWorker(QThread):
 
     def run(self):
         self._start_hotkey()
+        self._report("status", status="running", message=f"Bilgisayar kontrolü başladı (onay modu: {self.approval_mode})")
         try:
             if self.executor_factory:
                 executor = self.executor_factory()
@@ -92,4 +111,8 @@ class AgentWorker(QThread):
         status = {"done": "tamam", "stopped": "durduruldu", "refused": "reddedildi",
                   "limit": "sınır", "error": "hata"}.get(result.status, result.status)
         history.log("bilgisayar", self.task, f"{result.summary}\n\nAdım: {result.turns}, eylem: {result.actions}", status)
+        final = {"done": "done", "stopped": "cancelled"}.get(result.status, "failed")
+        detail = f"{result.summary} (adım: {result.turns}, eylem: {result.actions})"
+        self._report("status", status=final, message=detail,
+                     **({"result": result.summary} if final == "done" else {"error": result.summary}))
         self.finished_result.emit(result)

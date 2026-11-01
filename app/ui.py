@@ -8,8 +8,8 @@ from PySide6.QtGui import QColor, QTextCursor
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QFrame, QGraphicsDropShadowEffect, QGridLayout, QGroupBox, QHBoxLayout,
                                QHeaderView, QInputDialog, QLabel, QLineEdit, QListWidget, QMainWindow,
-                               QMessageBox, QPushButton, QScrollArea, QSpinBox, QStackedWidget, QStyle,
-                               QSystemTrayIcon, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit,
+                               QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox, QStackedWidget, QStyle,
+                               QSystemTrayIcon, QTableWidget, QTableWidgetItem, QTabWidget, QTextBrowser, QTextEdit,
                                QVBoxLayout, QWidget)
 
 from app import api_client, settings_store
@@ -57,6 +57,15 @@ QScrollArea { border:none; background:transparent; }
 QScrollBar:vertical { background:#0B1220; width:10px; border-radius:5px; }
 QScrollBar::handle:vertical { background:#1B3555; border-radius:5px; min-height:30px; }
 QStatusBar { color:#8DA6C4; }
+QLabel#metric { font-size:28px; font-weight:800; color:#F0F9FF; }
+QPushButton#kill { background:#7f1d1d; border:1px solid #f87171; color:#fff; font-weight:800; padding:12px; }
+QPushButton#kill:hover { background:#991b1b; }
+QPushButton#resume { background:#14532d; border:1px solid #4ade80; color:#fff; font-weight:800; padding:12px; }
+QProgressBar { background:#081321; border:1px solid #24476B; border-radius:6px; height:10px; text-align:center; color:transparent; }
+QProgressBar::chunk { background:#38BDF8; border-radius:5px; }
+QTabWidget::pane { border:1px solid #1B3555; border-radius:12px; top:-1px; }
+QTabBar::tab { background:#0B1220; color:#9FB5CE; padding:8px 16px; border-top-left-radius:8px; border-top-right-radius:8px; margin-right:2px; }
+QTabBar::tab:selected { background:#12243A; color:#7DD3FC; }
 """
 
 
@@ -201,6 +210,12 @@ class JarvisWindow(QMainWindow):
         sl.addSpacing(22)
         nav_buttons = QVBoxLayout(); nav_buttons.setSpacing(2); sl.addLayout(nav_buttons)
         sl.addStretch(1)
+        self.kill_button = QPushButton("■  ACİL DURDUR"); self.kill_button.setObjectName("kill")
+        self.kill_button.setToolTip("Tüm otomasyonu durdurur: bekleyen onaylar iptal, çalışan görevler durdurulur.")
+        self.kill_button.clicked.connect(self.toggle_kill_switch)
+        sl.addWidget(self.kill_button)
+        sl.addSpacing(8)
+        self._kill_engaged = False
         self.side_status = QLabel("● LOCAL AGENT  •  BEKLENİYOR"); self.side_status.setObjectName("muted")
         sl.addWidget(self.side_status)
         outer.addWidget(side)
@@ -222,6 +237,7 @@ class JarvisWindow(QMainWindow):
         foot.setAlignment(Qt.AlignRight); main.addWidget(foot)
 
         self.tab_overview = self._build_overview_page()
+        self.tab_board = self._build_board_page()
         self.tab_chat = self._build_chat_tab()
         self.tab_voice = self._build_voice_page()
         self.tab_task = self._build_task_tab()
@@ -232,6 +248,7 @@ class JarvisWindow(QMainWindow):
         self.tab_settings = self._build_settings_tab()
         self.pages = [
             (self.tab_overview, "⌂   Genel Bakış", "PERSONAL AI WORKSPACE", "Kontrol Merkezi"),
+            (self.tab_board, "☰   Görev Panosu", "GÖREV YAŞAM DÖNGÜSÜ • ZAMAN ÇİZELGESİ", "Görev Panosu"),
             (self.tab_chat, "◉   Asistan Merkezi", "CLAUDE • WEB • BECERİLER", "Asistan Merkezi"),
             (self.tab_voice, "◌   Sesli Komutlar", "GEMINI LIVE • WINDOWS SES", "Sesli Komutlar"),
             (self.tab_task, "▣   Kreatif Stüdyo", "BİLGİSAYAR KONTROLÜ • ADOBE • CAPCUT", "Kreatif Stüdyo"),
@@ -536,6 +553,24 @@ class JarvisWindow(QMainWindow):
         hl.addLayout(row)
         lay.addWidget(hero)
 
+        metrics = QGridLayout(); metrics.setSpacing(12)
+        self.metric_labels: dict[str, QLabel] = {}
+        self.metric_sub: dict[str, QLabel] = {}
+        tiles = [("active", "AKTİF GÖREV", "sırada / çalışıyor / onayda"),
+                 ("pending", "ONAY BEKLEYEN", "kararınızı bekleyen işlemler"),
+                 ("cost", "BUGÜNKÜ CLAUDE MALİYETİ", "tahmini, USD"),
+                 ("audit", "DENETİM ZİNCİRİ", "kayıt bütünlüğü")]
+        for i, (key, title, desc) in enumerate(tiles):
+            c, l = panel(title)
+            v = QLabel("—"); v.setObjectName("metric"); l.addWidget(v)
+            sub = QLabel(desc); sub.setObjectName("muted"); l.addWidget(sub)
+            if key == "cost":
+                self.budget_bar = QProgressBar(); self.budget_bar.setRange(0, 1000); self.budget_bar.setValue(0)
+                self.budget_bar.setFixedHeight(10); l.addWidget(self.budget_bar)
+            self.metric_labels[key] = v; self.metric_sub[key] = sub
+            metrics.addWidget(c, 0, i)
+        lay.addLayout(metrics)
+
         cards = QGridLayout(); cards.setSpacing(12)
         self.cards: dict[str, QLabel] = {}
         specs = [("claude", "CLAUDE CLOUD", "Sohbet • planlama • bilgisayar kontrolü"),
@@ -551,19 +586,93 @@ class JarvisWindow(QMainWindow):
 
         work = QHBoxLayout(); work.setSpacing(12)
         today, tl = panel("BUGÜN", "Açık görevler ve bugünkü hatırlatmalar")
-        self.today_list = QListWidget(); self.today_list.setMinimumHeight(170); tl.addWidget(self.today_list)
+        self.today_list = QListWidget(); self.today_list.setMinimumHeight(170); self.today_list.setTextElideMode(Qt.ElideRight); self.today_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff); tl.addWidget(self.today_list)
         go_plan = QPushButton("Planlayıcıyı aç"); go_plan.clicked.connect(lambda: self.tabs.setCurrentWidget(self.tab_planner))
         tl.addWidget(go_plan)
         work.addWidget(today, 1)
         pend, pl = panel("BEKLEYEN İŞLEM ONAYLARI", "Uygulama açma, mesaj, yükleme ve Photoshop komutları")
-        self.overview_pending = QListWidget(); self.overview_pending.setMinimumHeight(170); pl.addWidget(self.overview_pending)
+        self.overview_pending = QListWidget(); self.overview_pending.setMinimumHeight(170); self.overview_pending.setTextElideMode(Qt.ElideRight); self.overview_pending.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff); pl.addWidget(self.overview_pending)
         go_appr = QPushButton("Onaylara git"); go_appr.clicked.connect(lambda: self.tabs.setCurrentWidget(self.tab_approvals))
         pl.addWidget(go_appr)
         work.addWidget(pend, 1)
+        recent, rl = panel("SON GÖREVLER", "Plan, bilgisayar kontrolü ve onaylı eylemler")
+        self.recent_tasks = QListWidget(); self.recent_tasks.setMinimumHeight(170); self.recent_tasks.setTextElideMode(Qt.ElideRight); self.recent_tasks.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff); rl.addWidget(self.recent_tasks)
+        go_board = QPushButton("Görev Panosu"); go_board.clicked.connect(lambda: self.tabs.setCurrentWidget(self.tab_board))
+        rl.addWidget(go_board)
+        work.addWidget(recent, 1)
         lay.addLayout(work)
         lay.addStretch(1)
         scroll.setWidget(w)
         return scroll
+
+    # ---------- canlı panel verisi ----------
+    STATUS_ICON = {"queued": "◌", "planning": "✦", "planned": "✦", "awaiting_approval": "◈", "running": "▶",
+                   "done": "✔", "failed": "✘", "cancelled": "■"}
+
+    def refresh_dashboard(self):
+        def done(ok, d):
+            if not ok:
+                return
+            t, a, u, au = d["tasks"], d["approvals"], d["usage_today"], d["audit"]
+            self.metric_labels["active"].setText(str(t["active"]))
+            self.metric_sub["active"].setText(f"{t['done']} tamamlandı • {t['failed']} başarısız")
+            self.metric_labels["pending"].setText(str(a["pending"]))
+            self.metric_labels["pending"].setStyleSheet(f"color:{AMBER};" if a["pending"] else "")
+            self.metric_labels["cost"].setText(f"${u['cost_usd']:.2f}")
+            if u["budget_usd"]:
+                ratio = min(1.0, u["cost_usd"] / u["budget_usd"])
+                self.budget_bar.setValue(int(ratio * 1000)); self.budget_bar.setVisible(True)
+                self.metric_sub["cost"].setText(f"bütçe ${u['budget_usd']:.2f} • {u['calls']} çağrı"
+                                                + ("  • DOLDU" if u["exceeded"] else ""))
+                self.metric_labels["cost"].setStyleSheet(f"color:{RED};" if u["exceeded"] else "")
+            else:
+                self.budget_bar.setVisible(False)
+                self.metric_sub["cost"].setText(f"{u['calls']} çağrı • bütçe sınırı yok (⚙ Ayarlar)")
+            self.metric_labels["audit"].setText("✔ SAĞLAM" if au["ok"] else "✘ BOZUK")
+            self.metric_labels["audit"].setStyleSheet(f"color:{GREEN};" if au["ok"] else f"color:{RED};")
+            self.metric_sub["audit"].setText(f"{au['entries']} kayıt" + ("" if au["ok"] else f" • satır {au['broken_at']}"))
+            self.recent_tasks.clear()
+            for task in d["recent_tasks"]:
+                self.recent_tasks.addItem(f"{self.STATUS_ICON.get(task['status'], '•')} {task['title']}   ·   "
+                                          f"{task['status_tr']}")
+            if not d["recent_tasks"]:
+                self.recent_tasks.addItem("Henüz görev yok. Kreatif Stüdyo'dan veya hızlı komuttan başlayın.")
+            self._apply_kill_state(d["kill_switch"])
+        self.run_bg(lambda: self._get("/api/v1/dashboard"), done)
+
+    def _apply_kill_state(self, state: dict):
+        self._kill_engaged = bool(state.get("engaged"))
+        if self._kill_engaged:
+            self.kill_button.setText("▶  DURDURMAYI KALDIR"); self.kill_button.setObjectName("resume")
+            self.core_status.setText(f"⛔ ACİL DURDURMA ETKİN — {state.get('reason', '')}")
+            self.core_status.setStyleSheet(f"color:{RED};font-weight:700;background:transparent;")
+            self._set_core_mode("stopped")
+        else:
+            self.kill_button.setText("■  ACİL DURDUR"); self.kill_button.setObjectName("kill")
+            self.core_status.setStyleSheet("color:#7DD3FC;font-weight:600;background:transparent;")
+            busy = (self.agent_worker and self.agent_worker.isRunning()) or (self.voice_worker and self.voice_worker.isRunning())
+            self._set_core_mode("active" if busy else "idle")
+        self.kill_button.style().unpolish(self.kill_button); self.kill_button.style().polish(self.kill_button)
+
+    def toggle_kill_switch(self):
+        if self._kill_engaged:
+            payload = {"engaged": False}
+        else:
+            payload = {"engaged": True, "reason": "Kullanıcı ACİL DURDUR düğmesine bastı"}
+            if self.agent_worker and self.agent_worker.isRunning():
+                self.agent_worker.stop()
+            if self.chat_worker and self.chat_worker.isRunning():
+                self.chat_worker.stop()
+
+        def done(ok, result):
+            if not ok:
+                QMessageBox.warning(self, "Acil durdurma", str(result)); return
+            self._apply_kill_state(result)
+            if result.get("engaged"):
+                self.statusBar().showMessage(f"Acil durdurma etkin: {result.get('expired_approvals', 0)} onay iptal, "
+                                             f"{result.get('cancelled_tasks', 0)} görev durduruldu.", 10000)
+            self.refresh_all()
+        self.run_bg(lambda: self._post("/api/v1/control", payload), done)
 
     def _quick_ask(self):
         text = self.quick_input.text().strip()
@@ -594,10 +703,175 @@ class JarvisWindow(QMainWindow):
 
     def _set_core_mode(self, mode: str):
         """Çekirdek rengi: idle (camgöbeği), active (mor: ses/ajan çalışıyor)."""
-        color = PURPLE if mode == "active" else CYAN
+        color = {"active": PURPLE, "stopped": RED}.get(mode, CYAN)
+        border = {"active": "#5B3FA8", "stopped": "#7f1d1d"}.get(mode, "#155E75")
         self.core_glow.setColor(QColor(color))
-        self.core.setStyleSheet(f"font-size:92px;color:{color};border:2px solid "
-                                f"{'#5B3FA8' if mode == 'active' else '#155E75'};border-radius:70px;background:#091B2B;")
+        self.core.setStyleSheet(f"font-size:92px;color:{color};border:2px solid {border};"
+                                "border-radius:70px;background:#091B2B;")
+
+    # ================= Görev Panosu =================
+    BOARD_FILTERS = [("Aktif görevler", "__active"), ("Tümü", ""), ("Sırada", "queued"), ("Planlandı", "planned"),
+                     ("Onay bekliyor", "awaiting_approval"), ("Çalışıyor", "running"), ("Tamamlandı", "done"),
+                     ("Başarısız", "failed"), ("İptal edildi", "cancelled")]
+
+    def _build_board_page(self):
+        w = QWidget(); lay = QHBoxLayout(w); lay.setContentsMargins(0, 0, 0, 0); lay.setSpacing(12)
+        left, ll = panel("GÖREVLER", "Her görev: oluşturma → plan → onay → yürütme → sonuç")
+        top = QHBoxLayout()
+        self.board_filter = QComboBox()
+        for label, key in self.BOARD_FILTERS:
+            self.board_filter.addItem(label, key)
+        self.board_filter.currentIndexChanged.connect(lambda _: self.refresh_board())
+        refresh = QPushButton("↻"); refresh.setFixedWidth(44); refresh.clicked.connect(self.refresh_board)
+        top.addWidget(self.board_filter, 1); top.addWidget(refresh)
+        ll.addLayout(top)
+        self.board_table = QTableWidget(0, 5)
+        self.board_table.setHorizontalHeaderLabels(["Durum", "Görev", "Tür", "Kaynak", "Güncellendi"])
+        self.board_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.board_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.board_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.board_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.board_table.verticalHeader().setVisible(False)
+        self.board_table.itemSelectionChanged.connect(self._board_selected)
+        ll.addWidget(self.board_table, 1)
+        new = QHBoxLayout()
+        self.board_new = QLineEdit(); self.board_new.setPlaceholderText("Yeni görev yaz…")
+        self.board_new.returnPressed.connect(self._board_create)
+        create = QPushButton("+ Oluştur"); create.setObjectName("primary"); create.clicked.connect(self._board_create)
+        new.addWidget(self.board_new, 1); new.addWidget(create)
+        ll.addLayout(new)
+        lay.addWidget(left, 3)
+
+        right, rl = panel("GÖREV AYRINTISI")
+        self.board_title = QLabel("Bir görev seçin"); self.board_title.setStyleSheet("font-size:17px;font-weight:700;")
+        self.board_title.setWordWrap(True); rl.addWidget(self.board_title)
+        self.board_meta = QLabel(""); self.board_meta.setObjectName("muted"); self.board_meta.setWordWrap(True)
+        rl.addWidget(self.board_meta)
+        btns = QHBoxLayout()
+        self.board_plan = QPushButton("✦ Planla"); self.board_plan.clicked.connect(self._board_plan)
+        self.board_run = QPushButton("▣ Bilgisayarda yaptır"); self.board_run.setObjectName("accent")
+        self.board_run.clicked.connect(self._board_run)
+        self.board_cancel = QPushButton("■ İptal et"); self.board_cancel.setObjectName("danger")
+        self.board_cancel.clicked.connect(self._board_cancel)
+        for b in (self.board_plan, self.board_run, self.board_cancel):
+            b.setEnabled(False); btns.addWidget(b)
+        rl.addLayout(btns)
+        self.board_body = QTextBrowser(); self.board_body.setOpenExternalLinks(True); self.board_body.setMinimumHeight(150)
+        rl.addWidget(self.board_body, 2)
+        tl = QLabel("ZAMAN ÇİZELGESİ"); tl.setObjectName("eyebrow"); rl.addWidget(tl)
+        self.board_timeline = QListWidget(); rl.addWidget(self.board_timeline, 2)
+        lay.addWidget(right, 2)
+        self._board_tasks: list[dict] = []
+        self._board_current: dict | None = None
+        return w
+
+    def refresh_board(self):
+        key = self.board_filter.currentData()
+        params = "?active=true" if key == "__active" else (f"?status={key}" if key else "")
+        selected = self._board_current["id"] if self._board_current else None
+
+        def done(ok, rows):
+            if not ok:
+                return
+            self._board_tasks = rows
+            t = self.board_table
+            t.blockSignals(True)
+            t.setRowCount(len(rows))
+            reselect = -1
+            for i, task in enumerate(rows):
+                vals = [f"{self.STATUS_ICON.get(task['status'], '•')} {task['status_tr']}", task["title"],
+                        task["category_tr"], task["source"], task["updated_at"].replace("T", " ")[5:16]]
+                for j, v in enumerate(vals):
+                    t.setItem(i, j, QTableWidgetItem(v))
+                if task["id"] == selected:
+                    reselect = i
+            t.resizeColumnToContents(0); t.resizeColumnToContents(2); t.resizeColumnToContents(3); t.resizeColumnToContents(4)
+            t.blockSignals(False)
+            if reselect >= 0:
+                t.selectRow(reselect)
+                self._load_task_detail(selected)
+        self.run_bg(lambda: self._get("/api/v1/tasks" + params), done)
+
+    def _board_selected(self):
+        row = self.board_table.currentRow()
+        if 0 <= row < len(self._board_tasks):
+            self._load_task_detail(self._board_tasks[row]["id"])
+
+    def _load_task_detail(self, task_id: str):
+        def done(ok, task):
+            if not ok:
+                return
+            self._board_current = task
+            self.board_title.setText(task["title"])
+            self.board_meta.setText(f"{self.STATUS_ICON.get(task['status'], '')} {task['status_tr']}  •  "
+                                    f"{task['category_tr']}  •  kaynak: {task['source']}  •  "
+                                    f"oluşturma: {task['created_at'].replace('T', ' ')}")
+            body = [f"**Görev:** {task['instruction']}"]
+            if task["plan"]:
+                body.append("### Plan\n" + task["plan"])
+            if task["result"]:
+                body.append("### Sonuç\n" + task["result"])
+            if task["error"]:
+                body.append("### Hata\n" + task["error"])
+            if task["approvals"]:
+                body.append("### Bağlı onaylar\n" + "\n".join(
+                    f"- {a['summary']} — **{a['status']}**" + (f" ({a['error']})" if a["error"] else "")
+                    for a in task["approvals"]))
+            self.board_body.setMarkdown("\n\n".join(body))
+            self.board_timeline.clear()
+            for e in task["events"]:
+                self.board_timeline.addItem(f"{e['ts'][11:19]}  {e['message']}")
+            self.board_timeline.scrollToBottom()
+            active = task["status"] in ("queued", "planning", "planned", "awaiting_approval", "running")
+            self.board_plan.setEnabled(task["status"] in ("queued", "planned", "failed"))
+            self.board_run.setEnabled(task["status"] in ("queued", "planned"))
+            self.board_cancel.setEnabled(active)
+        self.run_bg(lambda: self._get(f"/api/v1/tasks/{task_id}"), done)
+
+    def _board_create(self):
+        text = self.board_new.text().strip()
+        if len(text) < 3:
+            return
+        self.board_new.clear()
+        def done(ok, task):
+            if not ok:
+                QMessageBox.warning(self, "Görev", str(task)); return
+            self._board_current = task
+            self.board_filter.setCurrentIndex(0)
+            self.refresh_board(); self.refresh_dashboard()
+        self.run_bg(lambda: self._post("/api/v1/tasks", {"instruction": text, "source": "ui"}), done)
+
+    def _board_plan(self):
+        if not self._board_current:
+            return
+        tid = self._board_current["id"]
+        self.board_plan.setEnabled(False)
+        self.board_meta.setText("✦ Claude planlıyor…")
+        def done(ok, res):
+            if not ok:
+                QMessageBox.warning(self, "Planlama", str(res))
+            self.refresh_board(); self.refresh_dashboard()
+        self.run_bg(lambda: self._post(f"/api/v1/tasks/{tid}/plan", {}, timeout=180), done)
+
+    def _board_run(self):
+        if not self._board_current:
+            return
+        self.task.setPlainText(self._board_current["instruction"])
+        self._pending_task_id = self._board_current["id"]
+        self.tabs.setCurrentWidget(self.tab_task)
+        self.start_agent()
+
+    def _board_cancel(self):
+        if not self._board_current:
+            return
+        tid = self._board_current["id"]
+        if self.agent_worker and self.agent_worker.isRunning() and self.agent_worker.task_id == tid:
+            self.agent_worker.stop()
+        def done(ok, res):
+            if not ok:
+                QMessageBox.warning(self, "İptal", str(res))
+            self.refresh_board(); self.refresh_dashboard(); self.refresh_approvals()
+        self.run_bg(lambda: self._post(f"/api/v1/tasks/{tid}/cancel", {}), done)
 
     # ================= Sesli Komutlar =================
     def _build_voice_page(self):
@@ -710,8 +984,13 @@ class JarvisWindow(QMainWindow):
 
         def done(ok, result):
             self.send_button.setEnabled(True)
-            self.output.setPlainText(result["plan"] + "\n\n" + result["note"] if ok else f"Hata: {result}")
-        self.run_bg(lambda: self._post("/task", {"instruction": instruction}, timeout=180), done)
+            if ok:
+                self.output.setPlainText(result["plan"] + "\n\n— Plan Görev Panosu'na kaydedildi.")
+            else:
+                self.output.setPlainText(f"Hata: {result}")
+            self.refresh_dashboard(); self.refresh_board()
+        self.run_bg(lambda: self._post("/api/v1/tasks", {"instruction": instruction, "plan": True, "source": "ui"},
+                                       timeout=180), done)
 
     def receive_task(self, text: str):
         """Sesli komuttan gelen görevi görev alanına koy (otomatik çalıştırmaz)."""
@@ -722,6 +1001,8 @@ class JarvisWindow(QMainWindow):
 
     # ----- bilgisayar kontrolü -----
     def start_agent(self):
+        board_task_id = getattr(self, "_pending_task_id", None)
+        self._pending_task_id = None  # her durumda temizle: iptal edilen başlatma sonraki çalıştırmaya bağlanmasın
         task = self.task.toPlainText().strip()
         if len(task) < 3:
             QMessageBox.information(self, "FK JARVIS", "Önce yapılacak görevi yazın.")
@@ -737,7 +1018,14 @@ class JarvisWindow(QMainWindow):
         from app.agent_overlay import AgentOverlay
         from app.agent_worker import AgentWorker
         self.output.clear()
-        self.agent_worker = AgentWorker(task, mode, self.max_turns.value(), parent=self)
+        task_id = board_task_id
+        if not task_id:
+            try:
+                task_id = api_client.post("/api/v1/tasks", {"instruction": task, "source": "bilgisayar"})["id"]
+            except Exception as exc:  # köprü yoksa görev kaydı olmadan da çalışabilir
+                self.output.append(f"(Görev kaydı oluşturulamadı: {exc})")
+                task_id = None
+        self.agent_worker = AgentWorker(task, mode, self.max_turns.value(), parent=self, task_id=task_id)
         if self.overlay is None:
             # Panel bir kez oluşturulur ve yeniden kullanılır (silip yeniden yaratmak Qt'de çökmeye yol açabilir).
             self.overlay = AgentOverlay()
@@ -785,7 +1073,7 @@ class JarvisWindow(QMainWindow):
         self.showNormal(); self.raise_(); self.activateWindow()
         icon = {"done": "✅", "stopped": "⏹", "refused": "⚠", "limit": "⏱", "error": "❌"}.get(result.status, "")
         self.output.append(f"\n{icon} Sonuç: {result.summary}\n(Adım: {result.turns}, eylem: {result.actions})")
-        self.refresh_history()
+        self.refresh_history(); self.refresh_dashboard(); self.refresh_board()
 
     # ----- ses -----
     def toggle_gemini_voice(self):
@@ -891,7 +1179,7 @@ class JarvisWindow(QMainWindow):
                 QMessageBox.information(self, "FK JARVIS", msg)
             else:
                 QMessageBox.warning(self, "İşlem başarısız", result)
-            self.refresh_approvals(); self.refresh_history()
+            self.refresh_approvals(); self.refresh_history(); self.refresh_dashboard(); self.refresh_board()
         # YouTube yüklemesi uzun sürebilir: zaman aşımı geniş tutulur.
         self.run_bg(lambda: self._post(f"/approvals/{item['id']}", {"approved": approved}, timeout=3600), done)
 
@@ -947,12 +1235,17 @@ class JarvisWindow(QMainWindow):
 
     # ================= Geçmiş sekmesi =================
     def _build_history_tab(self):
+        tabs = QTabWidget()
         w = QWidget(); lay = QVBoxLayout(w)
+        tabs.addTab(w, "Etkinlik akışı")
+        tabs.addTab(self._build_audit_view(), "Denetim kaydı")
+        self._history_inner = tabs
         self.history_table = QTableWidget(0, 4)
         self.history_table.setHorizontalHeaderLabels(["Zaman", "Tür", "Başlık", "Durum"])
         self.history_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.history_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.history_table.verticalHeader().setVisible(False)
         self.history_table.itemSelectionChanged.connect(self._history_selected)
         lay.addWidget(self.history_table, 2)
         self.history_detail = QTextEdit(); self.history_detail.setReadOnly(True)
@@ -962,7 +1255,46 @@ class JarvisWindow(QMainWindow):
         row.addWidget(refresh); row.addStretch(1)
         lay.addLayout(row)
         self.history_rows: list[dict] = []
+        return tabs
+
+    def _build_audit_view(self):
+        w = QWidget(); lay = QVBoxLayout(w)
+        top = QHBoxLayout()
+        self.audit_state = QLabel("Zincir doğrulanmadı"); self.audit_state.setObjectName("muted")
+        verify = QPushButton("🔒 Zinciri doğrula"); verify.clicked.connect(self.refresh_audit)
+        top.addWidget(self.audit_state, 1); top.addWidget(verify)
+        lay.addLayout(top)
+        self.audit_table = QTableWidget(0, 5)
+        self.audit_table.setHorizontalHeaderLabels(["#", "Zaman", "Kim", "Olay", "Hedef / Ayrıntı"])
+        self.audit_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
+        self.audit_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.audit_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.audit_table.verticalHeader().setVisible(False)
+        lay.addWidget(self.audit_table, 1)
+        note = QLabel("Her kayıt bir öncekinin SHA-256 özetini içerir; sonradan değiştirilen veya silinen kayıt "
+                      "doğrulamada görünür. Anahtarlar ve gizli bilgiler bu kayda yazılmaz.")
+        note.setObjectName("hint"); note.setWordWrap(True); lay.addWidget(note)
         return w
+
+    def refresh_audit(self):
+        def done(ok, res):
+            if not ok:
+                return
+            rows, check = res
+            t = self.audit_table; t.setRowCount(len(rows))
+            for i, r in enumerate(rows):
+                vals = [str(r["id"]), r["ts"].replace("T", " "), r["actor"], r["event"],
+                        f"{r['target']}  {r['data'] if r['data'] not in ('{}', '') else ''}"]
+                for j, v in enumerate(vals):
+                    t.setItem(i, j, QTableWidgetItem(v))
+            t.resizeColumnToContents(0); t.resizeColumnToContents(1); t.resizeColumnToContents(2); t.resizeColumnToContents(3)
+            if check["ok"]:
+                self.audit_state.setText(f"✔ Zincir sağlam — {check['entries']} kayıt doğrulandı")
+                self.audit_state.setStyleSheet(f"color:{GREEN};")
+            else:
+                self.audit_state.setText(f"✘ Zincir {check['broken_at']}. kayıtta bozulmuş! Kayıt değiştirilmiş olabilir.")
+                self.audit_state.setStyleSheet(f"color:{RED};")
+        self.run_bg(lambda: (self._get("/api/v1/audit"), self._get("/api/v1/audit/verify")), done)
 
     def refresh_history(self):
         def done(ok, result):
@@ -1033,6 +1365,23 @@ class JarvisWindow(QMainWindow):
             f.addRow(app_id + ":", row)
         lay.addWidget(apps)
 
+        ws = QGroupBox("ÇALIŞMA KLASÖRLERİ • JARVIS YALNIZCA BURADAKİ DOSYALARI OKUYABİLİR"); wl = QVBoxLayout(ws)
+        self.workspace_list = QListWidget(); self.workspace_list.setMinimumHeight(140); wl.addWidget(self.workspace_list)
+        wr = QHBoxLayout()
+        add_ws = QPushButton("+ Klasör ekle…"); add_ws.clicked.connect(self._add_workspace)
+        rm_ws = QPushButton("Seçiliyi kaldır"); rm_ws.clicked.connect(self._remove_workspace)
+        wr.addWidget(add_ws); wr.addWidget(rm_ws); wr.addStretch(1); wl.addLayout(wr)
+        lay.addWidget(ws)
+        self._workspaces: list[dict] = []
+
+        bud = QGroupBox("MALİYET KONTROLÜ"); bl = QHBoxLayout(bud)
+        bl.addWidget(QLabel("Günlük Claude bütçesi (USD, 0 = sınırsız):"))
+        self.budget_input = QSpinBox(); self.budget_input.setRange(0, 1000); self.budget_input.setSuffix(" $")
+        bl.addWidget(self.budget_input)
+        save_b = QPushButton("Bütçeyi kaydet"); save_b.clicked.connect(self._save_budget)
+        bl.addWidget(save_b); bl.addStretch(1)
+        lay.addWidget(bud)
+
         row = QHBoxLayout()
         save = QPushButton("💾 Kaydet"); save.setObjectName("primary"); save.clicked.connect(self.save_settings)
         row.addWidget(save); row.addStretch(1)
@@ -1043,6 +1392,47 @@ class JarvisWindow(QMainWindow):
         lay.addStretch(1)
         scroll.setWidget(w)
         return scroll
+
+    def refresh_settings_data(self):
+        def done(ok, res):
+            if not ok:
+                return
+            ws, today = res
+            self._workspaces = ws
+            self.workspace_list.clear()
+            for w in ws:
+                self.workspace_list.addItem(f"📁 {w['label']}  —  {w['path']}")
+            if not ws:
+                self.workspace_list.addItem("Çalışma klasörü yok: dosya becerileri hiçbir dosyaya erişemez.")
+            self.budget_input.setValue(int(today["budget_usd"]))
+        self.run_bg(lambda: (self._get("/api/v1/workspaces"), self._get("/api/v1/usage/today")), done)
+
+    def _add_workspace(self):
+        path = QFileDialog.getExistingDirectory(self, "Çalışma klasörü seç")
+        if not path:
+            return
+        def done(ok, res):
+            if not ok:
+                QMessageBox.warning(self, "Çalışma klasörü", str(res))
+            self.refresh_settings_data()
+        self.run_bg(lambda: self._post("/api/v1/workspaces", {"path": path}), done)
+
+    def _remove_workspace(self):
+        row = self.workspace_list.currentRow()
+        if not (0 <= row < len(self._workspaces)):
+            return
+        wid = self._workspaces[row]["id"]
+        self.run_bg(lambda: api_client.delete(f"/api/v1/workspaces/{wid}"), lambda ok, r: self.refresh_settings_data())
+
+    def _save_budget(self):
+        value = self.budget_input.value()
+        def done(ok, res):
+            if ok:
+                self.statusBar().showMessage(f"Günlük bütçe: {'sınırsız' if not value else f'{value} USD'}", 6000)
+                self.refresh_dashboard()
+            else:
+                QMessageBox.warning(self, "Bütçe", str(res))
+        self.run_bg(lambda: api_client.put("/api/v1/usage/budget", {"daily_budget_usd": value}), done)
 
     def save_settings(self):
         values = {}
@@ -1064,18 +1454,22 @@ class JarvisWindow(QMainWindow):
             if page is widget:
                 self.page_eyebrow.setText(eyebrow); self.page_heading.setText(heading)
         if widget is self.tab_overview:
-            self.refresh_status(); self.refresh_planner(); self._update_greeting()
+            self.refresh_status(); self.refresh_planner(); self._update_greeting(); self.refresh_dashboard()
+        elif widget is self.tab_board:
+            self.refresh_board()
+        elif widget is self.tab_settings:
+            self.refresh_settings_data()
         elif widget is self.tab_approvals:
             self.refresh_approvals()
         elif widget is self.tab_history:
-            self.refresh_history()
+            self.refresh_history(); self.refresh_audit()
         elif widget is self.tab_planner:
             self.refresh_planner()
 
     def refresh_all(self):
         self._update_greeting()
         self.check_health(); self.refresh_status(); self.refresh_approvals(); self.refresh_history()
-        self.refresh_planner()
+        self.refresh_planner(); self.refresh_dashboard()
 
     def check_health(self):
         def done(ok, _):
@@ -1090,6 +1484,8 @@ class JarvisWindow(QMainWindow):
                 self.side_status.setText("● LOCAL AGENT  •  OFFLINE"); self.side_status.setStyleSheet(f"color:{RED};")
                 self._set_card("windows", "● KÖPRÜ KAPALI", RED)
         self.run_bg(lambda: self._get("/health", timeout=2), done)
+        if self.tabs.currentWidget() is self.tab_overview:
+            self.refresh_dashboard()
 
     def refresh_status(self):
         def done(ok, data):
@@ -1121,6 +1517,8 @@ class JarvisWindow(QMainWindow):
                            GREEN if found else AMBER)
             self._set_card("android", "● PROTOTİP  •  eşleştirme henüz yok", MUTED)
             ready = [n for n, k in (("Claude", "anthropic_key"), ("Gemini", "gemini_key")) if data.get(k)]
+            if self._kill_engaged:
+                return  # acil durdurma mesajı ezilmesin
             self.core_status.setText(("Hazır: " + " • ".join(ready + ["Windows ajanı"])) if ready
                                      else "Başlamak için ⚙ Ayarlar'dan Claude API anahtarını girin.")
         self.run_bg(lambda: self._get("/status"), done)
