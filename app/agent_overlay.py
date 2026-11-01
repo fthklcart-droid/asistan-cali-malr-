@@ -58,6 +58,10 @@ class AgentOverlay(QWidget):
             except Exception:
                 pass
 
+    def reset(self):
+        self.status.setText("Başlıyor…")
+        self._set_buttons(False)
+
     def _set_buttons(self, asking: bool):
         self.ok.setVisible(asking); self.no.setVisible(asking); self.actions.setVisible(asking)
         self.adjustSize()

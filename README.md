@@ -24,8 +24,8 @@ Sonra **masaüstündeki FK JARVIS kısayolu** veya **`run_windows.bat`** ile ba�
 
 ## İlk deneme
 
-- **💬 Sohbet:** "İstanbul'da yarın hava nasıl?", "Masaüstümde hangi PDF'ler var?", "Yarın 09:30'da muhasebeciyi aramamı hatırlat", "Kahveyi şekersiz içtiğimi unutma".
-- **🖥 Görev & Kontrol → Bilgisayarda yaptır:** "Not Defteri'ni aç ve 'Merhaba' yaz". Pencere küçülür, sağ üstte onay paneli çıkar; her adımı **Onayla** ile ilerletin.
+- **◉ Asistan Merkezi** (veya Genel Bakış'taki hızlı komut kutusu): "İstanbul'da yarın hava nasıl?", "Masaüstümde hangi PDF'ler var?", "Yarın 09:30'da muhasebeciyi aramamı hatırlat", "Kahveyi şekersiz içtiğimi unutma".
+- **▣ Kreatif Stüdyo → Bilgisayarda yaptır:** "Not Defteri'ni aç ve 'Merhaba' yaz". Pencere küçülür, sağ üstte onay paneli çıkar; her adımı **Onayla** ile ilerletin.
   Acil durdurma: **Ctrl+Alt+F12**, panelde **DURDUR** veya fareyi ekranın sol üst köşesine götürün.
 
 > Windows SmartScreen "Windows bilgisayarınızı korudu" uyarısı verirse **Ek bilgi → Yine de çalıştır** deyin.

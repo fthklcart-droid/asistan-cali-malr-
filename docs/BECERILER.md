@@ -1,16 +1,20 @@
 # FK JARVIS — Beceriler ve özellikler
 
-## Sekmeler
+## Menü (sol gezinme çubuğu)
 
-| Sekme | Ne yapar |
+| Sayfa | Ne yapar |
 |---|---|
-| 💬 **Sohbet** | Claude ile Türkçe sohbet; yanıt kelime kelime akar. İnternette arama/sayfa okuma ve aşağıdaki becerileri kendisi kullanır. 🎤 ile sesli soru, 🔊 ile sesli yanıt. |
-| 🖥 **Görev & Kontrol** | *Claude ile planla*: görev planı. *Bilgisayarda yaptır*: Claude ekranı görür, fare/klavye kullanır (Computer Use). Gemini Live sesli görüşme ve kısa sesli komut. |
-| ✅ **Onaylar** | Dış dünyaya etki eden her işlem (uygulama açma, WhatsApp, YouTube, Photoshop) burada onay bekler. |
-| 📅 **Planlayıcı** | Yapılacaklar, hatırlatmalar (Windows bildirimi + isteğe bağlı sesli) ve JARVIS'in hafızası. |
-| 🔌 **Bağlayıcılar** | WhatsApp Business mesajı, YouTube video yükleme, Photoshop komutları. |
-| 🕘 **Geçmiş** | Tüm planlar, sohbetler, bilgisayar görevleri ve eylemler (yerel SQLite). |
+| ⌂ **Genel Bakış** | Holographic Core paneli, canlı servis kartları (Claude, Gemini, Windows ajanı, Android), hızlı komut kutusu, bugünün görevleri ve bekleyen onaylar. Çekirdek, ses görüşmesi veya bilgisayar kontrolü sırasında mor parlar. |
+| ◉ **Asistan Merkezi** | Claude ile Türkçe sohbet; yanıt kelime kelime akar. İnternette arama/sayfa okuma ve aşağıdaki becerileri kendisi kullanır. 🎤 ile sesli soru, 🔊 ile sesli yanıt. |
+| ◌ **Sesli Komutlar** | Gemini Live sesli görüşme ve kısa Windows sesli komutu; konuşma kaydı. |
+| ▣ **Kreatif Stüdyo** | *Claude ile planla* ve *Bilgisayarda yaptır* (Claude ekranı görür, fare/klavye kullanır). Uygulama açma düğmeleri ve Photoshop güvenli komutları. |
+| ◎ **Sosyal Medya** | WhatsApp Business mesajı ve YouTube video yükleme. |
+| ◈ **Görev Onayları** | Dış dünyaya etki eden her işlem (uygulama açma, WhatsApp, YouTube, Photoshop) burada onay bekler. |
+| ▦ **Planlayıcı** | Yapılacaklar, hatırlatmalar (Windows bildirimi + isteğe bağlı sesli) ve JARVIS'in hafızası. |
+| ◷ **Geçmiş** | Tüm planlar, sohbetler, bilgisayar görevleri ve eylemler (yerel SQLite). |
 | ⚙ **Ayarlar** | API anahtarları, mikrofon/hoparlör seçimi, uygulama yolları — `.env` düzenlemeye gerek yok. |
+
+Görsel tema: [TEMA_VE_ARAYUZ_TR.md](TEMA_VE_ARAYUZ_TR.md).
 
 ## Sohbet becerileri (Claude'un çağırabildiği araçlar)
 
