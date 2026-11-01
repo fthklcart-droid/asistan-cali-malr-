@@ -8,6 +8,7 @@ import threading
 from PySide6.QtCore import QThread, Signal
 
 from .config import load_env
+from .settings_store import device_arg
 
 # GEMINI_LIVE_MODEL boşsa sırayla denenir. Google model adlarını sık değiştirir;
 # hesabınızda etkin olan modeli .env içine yazmanız önerilir.
@@ -22,8 +23,24 @@ SYSTEM_INSTRUCTION = (
     "Kısa ve işe dönük yanıt ver. Kullanıcının sesli komutlarını doğru anlamaya çalış. "
     "Bilgisayarda işlem yapacağını iddia etme; gerçek araç çağrısı ve onay olmadan "
     "harici işlem gerçekleştirdiğini söyleme. Para harcama, mesaj gönderme, yayınlama, "
-    "dosya silme ve form gönderme öncesinde kullanıcı onayı gerektiğini belirt."
+    "dosya silme ve form gönderme öncesinde kullanıcı onayı gerektiğini belirt. "
+    "Kullanıcı bilgisayarda bir iş yapılmasını istediğinde (uygulama açma, düzenleme, dosya işlemi, "
+    "web'de bir şey yapma vb.) görevi eksiksiz Türkçe bir cümleyle jarvis_gorev aracına ilet ve kullanıcıya "
+    "görevin ekranda onayına sunulduğunu söyle."
 )
+
+JARVIS_TASK_TOOL = {
+    "function_declarations": [{
+        "name": "jarvis_gorev",
+        "description": "Kullanıcının bilgisayarda yapılmasını istediği görevi FK JARVIS görev ekranına iletir. "
+                       "Görev, kullanıcı ekranda onaylamadan çalışmaz.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {"gorev": {"type": "STRING", "description": "Yapılacak görevin açık Türkçe tanımı"}},
+            "required": ["gorev"],
+        },
+    }]
+}
 
 
 class GeminiVoiceWorker(QThread):
@@ -31,6 +48,7 @@ class GeminiVoiceWorker(QThread):
     status = Signal(str)
     transcript = Signal(str)
     error = Signal(str)
+    task_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -71,6 +89,7 @@ class GeminiVoiceWorker(QThread):
             },
             "input_audio_transcription": {},
             "output_audio_transcription": {},
+            "tools": [JARVIS_TASK_TOOL],
         }
 
         last_error: Exception | None = None
@@ -114,8 +133,10 @@ class GeminiVoiceWorker(QThread):
             loop.call_soon_threadsafe(enqueue)
 
         try:
-            mic = sd.RawInputStream(samplerate=16000, blocksize=1600, channels=1, dtype="int16", callback=mic_callback)
-            speaker = sd.RawOutputStream(samplerate=24000, channels=1, dtype="int16")
+            mic = sd.RawInputStream(samplerate=16000, blocksize=1600, channels=1, dtype="int16",
+                                    callback=mic_callback, device=device_arg("AUDIO_INPUT_DEVICE"))
+            speaker = sd.RawOutputStream(samplerate=24000, channels=1, dtype="int16",
+                                         device=device_arg("AUDIO_OUTPUT_DEVICE"))
         except Exception as exc:
             raise RuntimeError(
                 f"Mikrofon/hoparlör açılamadı: {exc}. Windows Ayarlar > Gizlilik ve güvenlik > Mikrofon "
@@ -140,6 +161,10 @@ class GeminiVoiceWorker(QThread):
                     async for response in session.receive():
                         if self._stop_event.is_set():
                             return
+                        tool_call = getattr(response, "tool_call", None)
+                        if tool_call and getattr(tool_call, "function_calls", None):
+                            await self._handle_tool_call(session, types, tool_call)
+                            continue
                         content = getattr(response, "server_content", None)
                         if not content:
                             continue
@@ -166,6 +191,21 @@ class GeminiVoiceWorker(QThread):
             for result in results:
                 if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
                     raise result
+
+
+    async def _handle_tool_call(self, session, types, tool_call):
+        responses = []
+        for fc in tool_call.function_calls:
+            args = dict(getattr(fc, "args", None) or {})
+            if fc.name == "jarvis_gorev" and str(args.get("gorev", "")).strip():
+                task = str(args["gorev"]).strip()
+                self.task_requested.emit(task)
+                self.transcript.emit(f"→ Görev ekrana iletildi: {task}")
+                result = {"sonuc": "Görev FK JARVIS ekranına iletildi; kullanıcı onayı bekleniyor."}
+            else:
+                result = {"hata": f"Bilinmeyen araç: {fc.name}"}
+            responses.append(types.FunctionResponse(id=fc.id, name=fc.name, response=result))
+        await session.send_tool_response(function_responses=responses)
 
 
 class _SessionStarted(Exception):

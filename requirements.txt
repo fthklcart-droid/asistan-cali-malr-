@@ -1,3 +1,4 @@
+# --- çekirdek ---
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
 anthropic>=0.125,<1
@@ -5,9 +6,21 @@ python-dotenv>=1,<2
 pydantic>=2.8,<3
 PySide6>=6.7,<7
 requests>=2.32,<3
+# --- ses ---
 google-genai>=1.30,<2
 sounddevice>=0.5,<1
 SpeechRecognition>=3.11,<4
-# test
+# --- bilgisayar kontrolü (Claude Computer Use) ---
+mss>=9
+pyautogui>=0.9.54
+pyperclip>=1.8
+Pillow>=10
+pyttsx3>=2.90
+pynput>=1.7
+# --- bağlayıcılar ---
+google-api-python-client>=2.100,<3
+google-auth-oauthlib>=1.2,<2
+pywin32>=306; sys_platform == "win32"
+# --- test ---
 pytest>=8,<9
 httpx>=0.27,<1

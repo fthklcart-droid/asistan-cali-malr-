@@ -6,11 +6,13 @@ API anahtarları her iki süreçte de aynı .env dosyasından okunur.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[1]
+# PyInstaller ile paketlenmiş sürümde ayarlar ve veriler .exe'nin yanındaki klasörde tutulur.
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / ".env"
 ENV_EXAMPLE_PATH = ROOT / ".env.example"
 

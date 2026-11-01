@@ -1,7 +1,7 @@
 {
-  "photoshop": "%ProgramFiles%/Adobe/Adobe Photoshop 2025/Photoshop.exe",
-  "premiere": "%ProgramFiles%/Adobe/Adobe Premiere Pro 2025/Adobe Premiere Pro.exe",
-  "lightroom": "%ProgramFiles%/Adobe/Adobe Lightroom Classic/Lightroom.exe",
-  "capcut": "%LOCALAPPDATA%/CapCut/Apps/CapCut.exe",
-  "browser": "%ProgramFiles%/Google/Chrome/Application/chrome.exe"
+  "photoshop": "",
+  "premiere": "",
+  "lightroom": "",
+  "capcut": "",
+  "browser": ""
 }

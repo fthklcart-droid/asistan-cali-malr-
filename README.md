@@ -1,6 +1,8 @@
 # FK JARVIS — Windows 11 kurulum ve çalıştırma
 
-Claude (görev planlama) + Gemini Live (Türkçe sesli görüşme) + yerel Windows uygulama başlatıcı.
+Türkçe konuşan kişisel masaüstü asistanı: Claude ile sohbet ve internet araması, **Claude'un bilgisayarı
+fare/klavyeyle kullanması (onaylı)**, Gemini Live sesli görüşme, hafıza, görev/hatırlatma, dosya ve fatura
+okuma, WhatsApp/YouTube/Photoshop bağlayıcıları. Tüm beceriler: [docs/BECERILER.md](docs/BECERILER.md).
 
 ## Hızlı başlangıç (3 adım)
 
@@ -17,6 +19,14 @@ Claude (görev planlama) + Gemini Live (Türkçe sesli görüşme) + yerel Windo
    ```
 
 Sonra **masaüstündeki FK JARVIS kısayolu** veya **`run_windows.bat`** ile başlatın. Tek pencere açılır; yerel köprü (`127.0.0.1:8765`) arka planda otomatik başlar.
+
+> Anahtarları sonradan uygulama içindeki **⚙ Ayarlar** sekmesinden de girebilirsiniz.
+
+## İlk deneme
+
+- **💬 Sohbet:** "İstanbul'da yarın hava nasıl?", "Masaüstümde hangi PDF'ler var?", "Yarın 09:30'da muhasebeciyi aramamı hatırlat", "Kahveyi şekersiz içtiğimi unutma".
+- **🖥 Görev & Kontrol → Bilgisayarda yaptır:** "Not Defteri'ni aç ve 'Merhaba' yaz". Pencere küçülür, sağ üstte onay paneli çıkar; her adımı **Onayla** ile ilerletin.
+  Acil durdurma: **Ctrl+Alt+F12**, panelde **DURDUR** veya fareyi ekranın sol üst köşesine götürün.
 
 > Windows SmartScreen "Windows bilgisayarınızı korudu" uyarısı verirse **Ek bilgi → Yine de çalıştır** deyin.
 
@@ -44,6 +54,12 @@ Sesli özellikler için: **Ayarlar → Gizlilik ve güvenlik → Mikrofon** → 
 | Gemini bağlanamıyor | `.env` içindeki `GEMINI_LIVE_MODEL` alanına AI Studio'da etkin Live modelin adını yazın |
 | Kısayolla açılmıyor | `run_windows.bat` ile açın (konsolda hata görünür) ve `jarvis.log` dosyasına bakın |
 | Paket kurulumu hatası | `.venv` klasörünü silip `setup_windows.bat`'ı yeniden çalıştırın |
+| Sesli yanıt Türkçe okumuyor | Ayarlar > Saat ve dil > Dil ve bölge > Türkçe > Dil seçenekleri > **Konuşma** paketini yükleyin |
+| Bilgisayar kontrolü yanlış yere tıklıyor | Windows ekran ölçeğini değiştirdiyseniz uygulamayı yeniden başlatın; tek monitörde çalıştırın (birincil ekran kullanılır) |
+
+## Tek dosyalık program (EXE)
+
+`build_exe.bat` → `dist\FK JARVIS\FK JARVIS.exe`. Klasörün tamamı başka bir bilgisayara kopyalanabilir; Python gerekmez. Anahtarlar ⚙ Ayarlar'dan girilir.
 
 ## Gelişmiş
 
@@ -52,6 +68,7 @@ Sesli özellikler için: **Ayarlar → Gizlilik ve güvenlik → Mikrofon** → 
 .venv\Scripts\python.exe -m app.server    &rem yalnızca yerel köprü
 .venv\Scripts\python.exe -m app.doctor    &rem kurulum kontrolü
 .venv\Scripts\python.exe -m pytest        &rem testler
+build_exe.bat                              &rem EXE paketi
 ```
 
 Mimari, güvenlik sınırları ve yol haritası: [README_TR.md](README_TR.md), [BASLANGIC_TR.md](BASLANGIC_TR.md), [docs/](docs/). Android kaynakları: `android/`.

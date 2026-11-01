@@ -35,7 +35,7 @@ def test_task_without_key_returns_hint(monkeypatch):
 
 def test_approve_launches_only_allowed_app(monkeypatch):
     launched = []
-    monkeypatch.setattr("app.server.launch_app", lambda app_id: launched.append(app_id) or f"{app_id} başlatıldı")
+    monkeypatch.setattr("app.actions.launch_app", lambda app_id: launched.append(app_id) or f"{app_id} başlatıldı")
     item = client.post("/actions/request", json={"action": "launch_app", "app_id": "browser"}).json()
     r = client.post(f"/approvals/{item['id']}", json={"approved": True})
     assert r.status_code == 200
@@ -49,3 +49,16 @@ def test_missing_app_returns_turkish_error(monkeypatch):
     r = client.post(f"/approvals/{item['id']}", json={"approved": True})
     assert r.status_code == 400
     assert "bulunamadı" in r.json()["detail"]
+
+
+def test_whatsapp_action_validation_and_history(monkeypatch):
+    bad = client.post("/actions/request", json={"action": "whatsapp_send", "to": "1", "body": ""})
+    assert bad.status_code == 422
+    sent = []
+    monkeypatch.setattr("app.connectors.whatsapp.send_text", lambda to, body: sent.append((to, body)) or "gönderildi")
+    item = client.post("/actions/request", json={"action": "whatsapp_send", "to": "05321234567", "body": "Selam"}).json()
+    assert "WhatsApp" in item["action"]["summary"]
+    assert client.post(f"/approvals/{item['id']}", json={"approved": True}).json()["result"] == "gönderildi"
+    assert sent == [("05321234567", "Selam")]
+    kinds = [e["kind"] for e in client.get("/history").json()]
+    assert "eylem" in kinds and "onay-istegi" in kinds

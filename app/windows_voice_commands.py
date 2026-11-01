@@ -5,6 +5,7 @@ import requests
 from PySide6.QtCore import QThread, Signal
 
 from .config import base_url
+from .settings_store import device_arg
 
 ALIASES = {
     "photoshop": ("photoshop", "fotoşop", "foto shop", "fotoşopu", "photoshopu", "fotoşap"),
@@ -33,6 +34,7 @@ class WindowsVoiceCommandWorker(QThread):
     status = Signal(str)
     transcript = Signal(str)
     error = Signal(str)
+    unmatched = Signal(str)  # uygulama adı içermeyen komut: Claude'a görev olarak gönderilebilir
 
     def run(self):
         try:
@@ -44,7 +46,8 @@ class WindowsVoiceCommandWorker(QThread):
         try:
             self.status.emit("Mikrofon açık — 4 saniye konuşun…")
             try:
-                audio = sd.rec(int(4 * 16000), samplerate=16000, channels=1, dtype="int16")
+                audio = sd.rec(int(4 * 16000), samplerate=16000, channels=1, dtype="int16",
+                               device=device_arg("AUDIO_INPUT_DEVICE"))
                 sd.wait()
             except Exception as exc:
                 self.error.emit(
@@ -59,7 +62,8 @@ class WindowsVoiceCommandWorker(QThread):
             self.transcript.emit("Duyulan komut: " + text)
             app_id = match_app(text)
             if not app_id:
-                self.status.emit("Komut anlaşıldı; izinli uygulama adı bulunamadı. Görevi metin alanına yazın.")
+                self.status.emit("Komut görev alanına aktarıldı. Claude ile planlayabilir veya bilgisayarda yaptırabilirsiniz.")
+                self.unmatched.emit(text)
                 return
             payload = {"action": "launch_app", "app_id": app_id, "description": f"Sesli komutla {app_id} uygulamasını aç"}
             response = requests.post(base_url() + "/actions/request", json=payload, timeout=8)
@@ -73,3 +77,33 @@ class WindowsVoiceCommandWorker(QThread):
             self.error.emit(f"Yerel köprüye ulaşılamadı: {exc}")
         except Exception as exc:
             self.error.emit(f"Sesli komut hatası: {exc}")
+
+
+class DictationWorker(QThread):
+    """Sohbet için sesli giriş: 6 saniye dinler, Türkçe metne çevirir."""
+    status = Signal(str)
+    error = Signal(str)
+    text_ready = Signal(str)
+
+    def run(self):
+        try:
+            import sounddevice as sd
+            import speech_recognition as sr
+        except Exception as exc:
+            self.error.emit(f"Ses paketleri yüklenemedi ({exc}).")
+            return
+        try:
+            self.status.emit("🎤 Dinliyorum (6 sn)…")
+            audio = sd.rec(int(6 * 16000), samplerate=16000, channels=1, dtype="int16",
+                           device=device_arg("AUDIO_INPUT_DEVICE"))
+            sd.wait()
+            self.status.emit("Yazıya çevriliyor…")
+            text = sr.Recognizer().recognize_google(sr.AudioData(audio.tobytes(), 16000, 2), language="tr-TR")
+            self.status.emit("")
+            self.text_ready.emit(text)
+        except sr.UnknownValueError:
+            self.error.emit("Konuşma anlaşılamadı, tekrar deneyin.")
+        except sr.RequestError as exc:
+            self.error.emit(f"Ses tanıma servisine ulaşılamadı: {exc}")
+        except Exception as exc:
+            self.error.emit(f"Mikrofon hatası: {exc}")

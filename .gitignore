@@ -7,3 +7,4 @@ config/apps.json
 build/
 dist/
 *.spec
+data/

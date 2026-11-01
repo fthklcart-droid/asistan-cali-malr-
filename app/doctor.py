@@ -31,12 +31,28 @@ def main() -> int:
         ("fastapi", "FastAPI"), ("uvicorn", "Uvicorn"), ("anthropic", "Anthropic SDK"),
         ("dotenv", "python-dotenv"), ("PySide6.QtWidgets", "PySide6"), ("requests", "requests"),
         ("google.genai", "Google GenAI"), ("sounddevice", "sounddevice"), ("speech_recognition", "SpeechRecognition"),
+        ("mss", "mss (ekran görüntüsü)"), ("PIL", "Pillow"), ("pyperclip", "pyperclip"), ("pyttsx3", "pyttsx3 (sesli yanıt)"),
+        ("googleapiclient", "YouTube API istemcisi"), ("google_auth_oauthlib", "Google OAuth"),
     ]:
         try:
             importlib.import_module(module)
             print(f"{OK} {label}")
         except Exception as exc:
             print(f"{FAIL} {label} yüklenemedi: {exc}")
+            problems += 1
+
+    for module, label in [("pyautogui", "pyautogui (fare/klavye)"), ("pynput", "pynput (acil durdurma kısayolu)")]:
+        try:
+            importlib.import_module(module)
+            print(f"{OK} {label}")
+        except Exception as exc:  # Windows dışında ekran bağlantısı yoksa yüklenemeyebilir
+            print(f"{WARN} {label}: {str(exc).splitlines()[0] if str(exc) else exc}")
+    if sys.platform == "win32":
+        try:
+            importlib.import_module("win32com.client")
+            print(f"{OK} pywin32 (Photoshop otomasyonu)")
+        except Exception as exc:
+            print(f"{FAIL} pywin32 yüklenemedi: {exc}")
             problems += 1
 
     from .config import ENV_PATH, has_key, port
@@ -46,6 +62,8 @@ def main() -> int:
         print(f"{WARN} .env yok — setup_windows.bat çalıştırın veya .env.example'ı .env olarak kopyalayın.")
     print(f"{OK if has_key('ANTHROPIC_API_KEY') else WARN} ANTHROPIC_API_KEY {'girilmiş' if has_key('ANTHROPIC_API_KEY') else 'boş (Claude planlama çalışmaz)'}")
     print(f"{OK if has_key('GEMINI_API_KEY') else WARN} GEMINI_API_KEY {'girilmiş' if has_key('GEMINI_API_KEY') else 'boş (Gemini sesli görüşme çalışmaz)'}")
+    print(f"{OK if has_key('WHATSAPP_TOKEN') else WARN} WhatsApp {'ayarlı' if has_key('WHATSAPP_TOKEN') else 'ayarlı değil (isteğe bağlı)'}")
+    print(f"{OK if has_key('YOUTUBE_CLIENT_SECRET_FILE') else WARN} YouTube {'ayarlı' if has_key('YOUTUBE_CLIENT_SECRET_FILE') else 'ayarlı değil (isteğe bağlı)'}")
     print(f"{OK} Köprü portu: {port()}")
 
     try:
