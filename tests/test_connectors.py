@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace as NS
 
 import pytest
@@ -36,10 +37,13 @@ def test_whatsapp_requires_config(monkeypatch):
 
 def test_photoshop_scripts(tmp_path):
     assert "autoLevels" in photoshop.build_script("auto_tone")
-    img = tmp_path / 'a"b.jpg'
+    # Betik enjeksiyonu: kaçışlanmış dize JS'de tek bir dize sabiti olarak kalmalı
+    hostile = 'x"); app.quit(); ("'
+    assert photoshop._js_str(hostile) == json.dumps(hostile) and '\\"' in photoshop._js_str(hostile)
+    img = tmp_path / "a'b;c (1).jpg"  # Windows'ta geçerli, betik için zor karakterler
     img.write_bytes(b"")
     script = photoshop.build_script("open", str(img))
-    assert '\\"' in script  # tırnak kaçışı: betik enjeksiyonu yok
+    assert json.dumps(img.as_posix()) in script
     out = photoshop.build_script("export_png", str(tmp_path / "cikti.jpg"))
     assert "cikti.png" in out
     with pytest.raises(photoshop.PhotoshopError):

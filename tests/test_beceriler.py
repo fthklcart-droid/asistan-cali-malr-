@@ -53,7 +53,10 @@ def test_memory_search_turkish_suffixes():
 
 
 def test_file_safety(tmp_path, monkeypatch):
+    from app import workspaces
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    # Windows'ta varsayılan klasörler gerçek "bilinen klasörler" API'sinden gelir; testte sahte ev klasörü kullanılsın
+    monkeypatch.setattr(workspaces, "_known_folder", lambda guid: None)
     (tmp_path / "Documents").mkdir()  # varsayılan çalışma klasörü olarak otomatik eklenir
     (tmp_path / "Documents" / "rapor.txt").write_text("satış raporu", encoding="utf-8")
     (tmp_path / ".env").write_text("SECRET=1")

@@ -8,3 +8,4 @@ build/
 dist/
 *.spec
 data/
+.pytest_tmp/
