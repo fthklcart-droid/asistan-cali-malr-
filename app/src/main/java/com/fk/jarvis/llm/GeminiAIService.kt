@@ -16,7 +16,8 @@ class GeminiAIService(
     private val modelProvider: () -> String,
     private val assistantName: () -> String = { "JARVIS" },
     private val baseUrlProvider: () -> String? = { null },
-    private val httpSupport: HttpSupport = HttpSupport(),
+    // Sesli asistan: yoğun/yanıtsız modelde uzun süre beklemek yerine hızla yedek modele geçilir.
+    private val httpSupport: HttpSupport = HttpSupport(maxRetries = 0, callTimeoutSec = 25),
 ) : LLMProvider {
 
     /** Testler ve geriye dönük uyumluluk için sabit adresli kurucu. */
@@ -25,7 +26,7 @@ class GeminiAIService(
         modelProvider: () -> String,
         baseUrl: String,
         retryBaseDelayMs: Long = 1000,
-    ) : this(apiKeyProvider, modelProvider, { "JARVIS" }, { baseUrl }, HttpSupport(retryBaseDelayMs = retryBaseDelayMs))
+    ) : this(apiKeyProvider, modelProvider, { "JARVIS" }, { baseUrl }, HttpSupport(maxRetries = 0, retryBaseDelayMs = retryBaseDelayMs))
 
     override val id = "gemini"
     override val displayName = "Google Gemini"
@@ -39,8 +40,7 @@ class GeminiAIService(
     private fun endpoint(): String {
         val base = customBase ?: DEFAULT_BASE_URL
         if (!EndpointPolicy.validate(base, allowPrivateHttp = true)) throw LlmException(LlmException.Kind.INSECURE_URL, "bad base url")
-        val model = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
-        return "${base.trimEnd('/')}/v1beta/models/$model:generateContent"
+        return "${base.trimEnd('/')}/v1beta/models/${activeModel()}:generateContent"
     }
 
     private fun headers(): Map<String, String> {
@@ -52,13 +52,56 @@ class GeminiAIService(
         return mapOf("x-goog-api-key" to key)
     }
 
-    override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>): CommandProposal {
-        val headers = headers()
-        val raw = httpSupport.postJson(endpoint(), headers, buildRequestBody(userText, history, context))
-        return parseResponse(raw)
+    /**
+     * Model sağlığı: yoğun (503), yanıtsız, kotası dolmuş ya da bulunamayan model [FALLBACK_HOLD_MS] boyunca atlanır
+     * ve sıradaki yedek modele geçilir. Süre dolunca seçili model yeniden denenir.
+     */
+    private val badUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    @Volatile private var thinkingRejected = false
+    @Volatile private var currentModel: String? = null
+
+    private fun selectedModel() = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
+    private fun activeModel(): String = currentModel ?: selectedModel()
+
+    /** Denenecek modeller: önce seçili model, sonra yedekler; sorunlu işaretlenenler sona atılır. */
+    private fun candidates(): List<String> {
+        val now = System.currentTimeMillis()
+        val all = (listOf(selectedModel()) + FALLBACK_MODELS).distinct()
+        val (healthy, sick) = all.partition { (badUntil[it] ?: 0L) <= now }
+        return healthy + sick
     }
 
-    override suspend fun research(query: String, context: Map<String, String>): String {
+    /** Sırayla modelleri dener; düşünme ayarı reddedilirse aynı modelde onsuz bir kez daha dener. */
+    private suspend fun <T> withFallbacks(block: suspend () -> T): T {
+        var last: LlmException? = null
+        for (m in candidates()) {
+            currentModel = m
+            try {
+                return try { block() } catch (e: LlmException) {
+                    if (e.kind == LlmException.Kind.BAD_REQUEST && !thinkingRejected && (e.detail ?: "").contains("think", true)) {
+                        thinkingRejected = true; block()
+                    } else throw e
+                }
+            } catch (e: LlmException) {
+                last = e
+                if (e.kind !in FALLBACK_KINDS) throw e
+                badUntil[m] = System.currentTimeMillis() + FALLBACK_HOLD_MS
+            } finally {
+                currentModel = null
+            }
+        }
+        throw last ?: LlmException(LlmException.Kind.BAD_RESPONSE, "no model")
+    }
+
+    override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>): CommandProposal = withFallbacks {
+        val headers = headers()
+        val raw = httpSupport.postJson(endpoint(), headers, buildRequestBody(userText, history, context))
+        parseResponse(raw)
+    }
+
+    override suspend fun research(query: String, context: Map<String, String>): String = withFallbacks { researchOnce(query, context) }
+
+    private suspend fun researchOnce(query: String, context: Map<String, String>): String {
         val headers = headers()
         val body = JSONObject()
             .put("systemInstruction", textParts(AssistantPrompt.researchInstruction(assistantName())))
@@ -99,8 +142,7 @@ class GeminiAIService(
 
     /** Gemini 3 ailesinde düşünme düzeyi "low": sesli asistan için hızlı yanıt. Eski modellere gönderilmez. */
     private fun thinking(cfg: JSONObject) {
-        val m = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
-        if (m.startsWith("gemini-3")) cfg.put("thinkingConfig", JSONObject().put("thinkingLevel", "low"))
+        if (!thinkingRejected && activeModel().startsWith("gemini-3")) cfg.put("thinkingConfig", JSONObject().put("thinkingLevel", "low"))
     }
 
     private fun textParts(t: String) = JSONObject().put("parts", JSONArray().put(JSONObject().put("text", t)))
@@ -138,6 +180,13 @@ class GeminiAIService(
     companion object {
         const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com"
         const val DEFAULT_MODEL = "gemini-3.8-flash"
+        /** Seçili model kullanılamaz ya da yoğunsa (503) sırayla denenen hızlı modeller. */
+        val FALLBACK_MODELS = listOf("gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview")
+        const val FALLBACK_MODEL = "gemini-3.5-flash"
+        const val FALLBACK_HOLD_MS = 30 * 60 * 1000L
+        private val FALLBACK_KINDS = setOf(
+            LlmException.Kind.MODEL_NOT_FOUND, LlmException.Kind.SERVER, LlmException.Kind.TIMEOUT, LlmException.Kind.QUOTA,
+        )
         const val MAX_HISTORY = 6
     }
 }

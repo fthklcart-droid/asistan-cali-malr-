@@ -482,7 +482,8 @@ class AssistantCore(
         _conversationActive.value = false
         _level.value = 0f
         if (liveUser.isNotBlank() || liveBot.isNotBlank()) liveTurnComplete()
-        if (error != null) _ui.update { it.copy(state = AssistantState.ERROR, error = error, response = error) }
+        // Hata hem ekranda gösterilir hem sesli söylenir (canlı bağlantı kurulamadıysa kullanıcı nedenini duysun).
+        if (error != null) showError(error)
         else _ui.update { it.copy(state = AssistantState.IDLE, partialTranscript = "") }
     }
 

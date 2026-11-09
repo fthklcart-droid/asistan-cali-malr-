@@ -6,10 +6,18 @@ import com.fk.jarvis.core.CommandProposal
 data class ChatTurn(val fromUser: Boolean, val text: String)
 
 /** Sağlayıcı hatalarının sınıflandırılmış hâli; kullanıcıya anlaşılır mesaj üretmek için. */
-class LlmException(val kind: Kind, message: String, cause: Throwable? = null) : Exception(message, cause) {
-    enum class Kind { NOT_CONFIGURED, NETWORK, TIMEOUT, QUOTA, AUTH, SERVER, BAD_RESPONSE, BLOCKED, UNSUPPORTED, INSECURE_URL }
+class LlmException(
+    val kind: Kind,
+    message: String,
+    cause: Throwable? = null,
+    /** Sunucunun döndürdüğü hata metni (kullanıcıya gösterilir; anahtar içermez). */
+    val detail: String? = null,
+) : Exception(message, cause) {
+    enum class Kind { NOT_CONFIGURED, NETWORK, TIMEOUT, QUOTA, AUTH, SERVER, BAD_RESPONSE, BLOCKED, UNSUPPORTED, INSECURE_URL, MODEL_NOT_FOUND, BAD_REQUEST }
 
-    fun userMessage(): String = when (kind) {
+    fun userMessage(): String = base() + (detail?.takeIf { it.isNotBlank() }?.let { " Sunucu yanıtı: ${it.take(220)}" } ?: "")
+
+    private fun base(): String = when (kind) {
         Kind.NOT_CONFIGURED -> "Yapay zekâ sağlayıcısı ayarlanmadı. Ayarlardan bir sağlayıcı seçip API anahtarını girebilirsin."
         Kind.NETWORK -> "İnternete bağlanamadım. Yerel komutları kullanmaya devam edebilirsin."
         Kind.TIMEOUT -> "Yapay zekâ sunucusu zamanında yanıt vermedi."
@@ -19,6 +27,8 @@ class LlmException(val kind: Kind, message: String, cause: Throwable? = null) : 
         Kind.BAD_RESPONSE -> "Yapay zekâdan anlaşılır bir yanıt alamadım."
         Kind.BLOCKED -> "Bu isteğe güvenlik filtresi nedeniyle yanıt veremiyorum."
         Kind.UNSUPPORTED -> "Seçili yapay zekâ sağlayıcısı internet araştırmasını desteklemiyor. Gemini, Claude veya OpenAI seçebilirsin."
+        Kind.MODEL_NOT_FOUND -> "Seçili model bu anahtarla kullanılamıyor ya da adı hatalı. SUNUCU bölmesinden model adını değiştir."
+        Kind.BAD_REQUEST -> "Yapay zekâ sunucusu isteği reddetti."
         Kind.INSECURE_URL -> "Sunucu adresi güvenli değil. Bulut sağlayıcılar için https kullanılmalı; http yalnızca yerel ağdaki model sunucusu için kabul edilir."
     }
 }

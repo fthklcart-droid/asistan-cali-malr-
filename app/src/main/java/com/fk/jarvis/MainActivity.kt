@@ -110,6 +110,15 @@ class MainActivity : ComponentActivity() {
             val r = app.apps.launch(info)
             if (!r.success) app.core.speak(r.message)
         }
+        override fun testSpeech() {
+            val am = getSystemService(android.media.AudioManager::class.java)
+            if (am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) == 0) {
+                // Ses kapalıysa sistemin ses panelini göster ki kullanıcı açabilsin.
+                am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_SAME, android.media.AudioManager.FLAG_SHOW_UI)
+            }
+            app.core.speak("Ses testi. Merhaba, ben ${app.settings.current.assistantName}. Beni duyabiliyorsan ses sistemi çalışıyor.")
+            refreshSystem()
+        }
         override fun openTtsSettings() {
             try { startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
             catch (e: Exception) { app.permissions.openAppSettings() }
@@ -253,6 +262,8 @@ class MainActivity : ComponentActivity() {
             signatureSha256 = sha,
             testSigned = sha.startsWith(TEST_KEY_SHA_PREFIX),
             androidVersion = "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+            mediaVolume = getSystemService(android.media.AudioManager::class.java).getStreamVolume(android.media.AudioManager.STREAM_MUSIC),
+            mediaVolumeMax = getSystemService(android.media.AudioManager::class.java).getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC),
         )
     }
 

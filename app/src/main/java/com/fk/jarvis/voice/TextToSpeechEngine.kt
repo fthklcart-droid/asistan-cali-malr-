@@ -81,7 +81,7 @@ class TextToSpeechEngine(context: Context) : SpeechOutput {
     }
 
     private val attributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANT)
+        .setUsage(AudioAttributes.USAGE_MEDIA)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
 
@@ -110,7 +110,15 @@ class TextToSpeechEngine(context: Context) : SpeechOutput {
         val f = File(appContext.cacheDir, "tts_${u.id}.wav")
         u.file = f
         val res = tts.synthesizeToFile(u.text, Bundle(), f, u.id)
-        if (res != TextToSpeech.SUCCESS) { u.file = null; f.delete(); direct(u) }
+        if (res != TextToSpeech.SUCCESS) { u.file = null; f.delete(); direct(u); return }
+        // Bazı TTS motorları dosyaya yazmayı bitirmez/bildirmez: 10 sn içinde çalmaya başlanmazsa doğrudan konuş.
+        main.postDelayed({
+            if (current === u && !u.finished && u.player == null && u.file != null) {
+                tts.stop()
+                u.file?.delete(); u.file = null
+                direct(u)
+            }
+        }, 10_000)
     }
 
     private fun direct(u: Utterance) {

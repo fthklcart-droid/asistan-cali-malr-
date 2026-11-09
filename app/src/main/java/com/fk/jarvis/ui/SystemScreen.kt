@@ -67,6 +67,12 @@ fun SystemScreen(s: HoloState, a: HoloActions) {
         HoloPanel(title = "SES SERVİSLERİ") {
             StatusRow("Konuşma tanıma", if (sys.sttAvailable) "Cihazda tanıma hizmeti var" else "Tanıma hizmeti yok — Google uygulamasını yükle", sys.sttAvailable, null) {}
             StatusRow("Türkçe seslendirme", sys.ttsStatus, sys.ttsReady, if (!sys.ttsReady) "AYARLAR" else null) { a.openTtsSettings() }
+            val volOk = sys.mediaVolume > 0
+            StatusRow(
+                "Medya sesi",
+                if (sys.mediaVolume < 0) "—" else if (volOk) "Düzey ${sys.mediaVolume} / ${sys.mediaVolumeMax}" else "KAPALI — yanıtlar duyulmaz; telefonun ses tuşuyla aç",
+                volOk, "SES TESTİ",
+            ) { a.testSpeech() }
             StatusRow("Arka plan oturumu", if (sys.serviceRunning) "Ön plan hizmeti çalışıyor (bildirim görünür)" else "Kapalı", sys.serviceRunning, null, optional = true) {}
         }
 

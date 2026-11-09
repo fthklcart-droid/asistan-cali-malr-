@@ -91,6 +91,40 @@ class GeminiAIServiceTest {
         assertEquals(null, server.takeRequest().getHeader("x-goog-api-key"))
     }
 
+    @Test fun unavailableModelFallsBackAndShowsServerMessage() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":{"code":404,"message":"models/gemini-x is not found for API version v1beta","status":"NOT_FOUND"}}"""))
+        server.enqueue(ok("""{"intent":"chat","spoken_response":"Merhaba"}"""))
+        val p = GeminiAIService({ "k" }, { "gemini-x" }, { "JARVIS" }, { server.url("/").toString() })
+        assertEquals("Merhaba", p.propose("selam", emptyList(), emptyMap()).spokenResponse)
+        server.takeRequest()
+        assertTrue(server.takeRequest().path!!.contains("/models/${GeminiAIService.FALLBACK_MODEL}:generateContent"))
+    }
+
+    @Test fun overloadedModelFallsBackQuickly() = runBlocking {
+        val busy = """{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}"""
+        server.enqueue(MockResponse().setResponseCode(503).setBody(busy)) // 3.8
+        server.enqueue(MockResponse().setResponseCode(503).setBody(busy)) // 3.5
+        server.enqueue(ok("""{"intent":"chat","spoken_response":"Buradayım"}"""))
+        server.enqueue(ok("""{"intent":"chat","spoken_response":"Yine buradayım"}"""))
+        val p = GeminiAIService({ "k" }, { "gemini-3.8-flash" }, server.url("/").toString(), retryBaseDelayMs = 1)
+        assertEquals("Buradayım", p.propose("selam", emptyList(), emptyMap()).spokenResponse)
+        assertTrue(server.takeRequest().path!!.contains("/models/gemini-3.8-flash:"))
+        assertTrue(server.takeRequest().path!!.contains("/models/gemini-3.5-flash:"))
+        assertTrue(server.takeRequest().path!!.contains("/models/gemini-3.5-flash-lite:"))
+        // Sonraki istek yoğun modelleri beklemeden doğrudan sağlıklı modele gider.
+        assertEquals("Yine buradayım", p.propose("selam", emptyList(), emptyMap()).spokenResponse)
+        assertTrue(server.takeRequest().path!!.contains("/models/gemini-3.5-flash-lite:"))
+    }
+
+    @Test fun badRequestCarriesServerDetail() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":{"code":400,"message":"Invalid JSON payload received.","status":"INVALID_ARGUMENT"}}"""))
+        try { provider().propose("x", emptyList(), emptyMap()); fail() } catch (e: LlmException) {
+            assertEquals(LlmException.Kind.BAD_REQUEST, e.kind)
+            assertTrue(e.userMessage().contains("Invalid JSON payload received."))
+            assertTrue(e.userMessage().contains("HTTP 400"))
+        }
+    }
+
     @Test fun missingKeyDoesNotCallNetwork() = runBlocking {
         val p = GeminiAIService({ null }, { "m" }, { "JARVIS" }, { null })
         assertFalse(p.isConfigured)

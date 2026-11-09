@@ -86,6 +86,9 @@ data class SystemStatus(
     val signatureSha256: String = "—",
     val testSigned: Boolean = true,
     val androidVersion: String = "—",
+    /** Medya ses düzeyi (TTS ve canlı mod bu kanaldan çalar). */
+    val mediaVolume: Int = -1,
+    val mediaVolumeMax: Int = 15,
 )
 
 /** Sunucu bağlantı testi sonucu. */
@@ -132,6 +135,7 @@ interface HoloActions {
     fun requestCalendar()
     fun openTtsSettings()
     fun loadApps()
+    fun testSpeech()
     fun launchApp(info: AppInfo)
 }
 

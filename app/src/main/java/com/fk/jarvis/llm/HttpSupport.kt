@@ -16,12 +16,13 @@ class HttpSupport(
     private val maxRetries: Int = 2,
     private val retryBaseDelayMs: Long = 1000,
     client: OkHttpClient? = null,
+    callTimeoutSec: Long = 75,
 ) {
     val http: OkHttpClient = client ?: OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(minOf(60L, callTimeoutSec), TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
-        .callTimeout(75, TimeUnit.SECONDS)
+        .callTimeout(callTimeoutSec, TimeUnit.SECONDS)
         .build()
 
     suspend fun postJson(url: String, headers: Map<String, String>, body: String): String {
@@ -39,21 +40,36 @@ class HttpSupport(
         }
     }
 
+    /** Google/OpenAI/Anthropic hata gövdesinden okunabilir mesajı çıkarır. */
+    private fun errorMessage(body: String): String? = try {
+        val o = org.json.JSONObject(body)
+        val e = o.opt("error")
+        when (e) {
+            is org.json.JSONObject -> e.optString("message").ifBlank { null }
+            is String -> e
+            else -> o.optString("message").ifBlank { null }
+        }?.replace(Regex("\\s+"), " ")?.take(240)
+    } catch (_: Exception) { body.take(160).ifBlank { null } }
+
     private fun execute(url: String, headers: Map<String, String>, body: String): String {
         val b = Request.Builder().url(url).post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
         headers.forEach { (k, v) -> b.header(k, v) }
         try {
             http.newCall(b.build()).execute().use { resp ->
                 val text = resp.body?.string().orEmpty()
-                when {
-                    resp.isSuccessful -> return text
-                    resp.code == 429 -> throw LlmException(LlmException.Kind.QUOTA, "HTTP 429")
-                    resp.code == 401 || resp.code == 403 -> throw LlmException(LlmException.Kind.AUTH, "HTTP ${resp.code}")
-                    resp.code == 400 && (text.contains("API_KEY_INVALID") || text.contains("invalid_api_key")) ->
-                        throw LlmException(LlmException.Kind.AUTH, "invalid key")
-                    resp.code >= 500 -> throw LlmException(LlmException.Kind.SERVER, "HTTP ${resp.code}")
-                    else -> throw LlmException(LlmException.Kind.BAD_RESPONSE, "HTTP ${resp.code}")
+                if (resp.isSuccessful) return text
+                val detail = "HTTP ${resp.code}" + (errorMessage(text)?.let { " – $it" } ?: "")
+                val k = when {
+                    resp.code == 429 -> LlmException.Kind.QUOTA
+                    resp.code == 401 || resp.code == 403 -> LlmException.Kind.AUTH
+                    resp.code == 400 && (text.contains("API_KEY_INVALID") || text.contains("invalid_api_key")) -> LlmException.Kind.AUTH
+                    resp.code == 404 || (resp.code == 400 && Regex("model", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
+                        Regex("not found|not supported|does not exist|unknown", RegexOption.IGNORE_CASE).containsMatchIn(text)) -> LlmException.Kind.MODEL_NOT_FOUND
+                    resp.code == 400 -> LlmException.Kind.BAD_REQUEST
+                    resp.code >= 500 -> LlmException.Kind.SERVER
+                    else -> LlmException.Kind.BAD_RESPONSE
                 }
+                throw LlmException(k, "HTTP ${resp.code}", detail = detail)
             }
         } catch (e: LlmException) {
             throw e
