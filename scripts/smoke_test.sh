@@ -15,6 +15,7 @@ tap_text() {
   local want="$1"
   local exact="${2:-}"
   for attempt in 1 2 3 4; do
+    dismiss_system_dialogs
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
     adb pull /sdcard/ui.xml "$OUT/ui.xml" >/dev/null 2>&1
     local xy
@@ -47,7 +48,33 @@ PY
   return 1
 }
 
+# Emülatörün kendi uygulamalarından gelen "... yanıt vermiyor" pencerelerini kapatır (bizim uygulamamızla ilgisizdir).
+dismiss_system_dialogs() {
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+  adb pull /sdcard/ui.xml "$OUT/ui.xml" >/dev/null 2>&1
+  if grep -qE "isn't responding|yanıt vermiyor" "$OUT/ui.xml" 2>/dev/null; then
+    local who
+    who=$(grep -oE "[A-Za-z ]+ isn't responding" "$OUT/ui.xml" | head -1)
+    log "sistem penceresi kapatılıyor: $who"
+    case "$who" in *JARVIS*|*SRİUS*) log "UYARI: bizim uygulama yanıt vermiyor"; ANR_OURS=1 ;; esac
+    local xy
+    xy=$(python3 -c "
+import re,sys
+x=open('$OUT/ui.xml',encoding='utf-8').read()
+m=re.search(r'text=\"Wait\"[^>]*bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]', x)
+print((int(m.group(1))+int(m.group(3)))//2, (int(m.group(2))+int(m.group(4)))//2) if m else None" 2>/dev/null)
+    if [ -n "$xy" ] && [ "$xy" != "None" ]; then adb shell input tap $xy; else adb shell input keyevent KEYCODE_BACK; fi
+    sleep 2
+  fi
+}
+
+ANR_OURS=0
 FAIL=0
+log "emülatör hazırlığı"
+adb shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 || true
+adb shell input keyevent KEYCODE_WAKEUP; adb shell input keyevent KEYCODE_HOME
+sleep 15   # ana ekran uygulaması yerleşsin
+dismiss_system_dialogs
 log "kurulum"
 adb install -r -g "$APK" || { log "KURULUM BAŞARISIZ"; exit 1; }
 adb shell dumpsys package $PKG | grep -E "versionName|targetSdk" | head -3
@@ -87,6 +114,7 @@ if [ -s "$OUT/crash.txt" ]; then
 else
   log "çökme yok"
 fi
+[ "$ANR_OURS" = 1 ] && FAIL=1
 if adb shell pidof $PKG >/dev/null; then log "uygulama çalışıyor"; else log "uygulama süreci yok"; fi
 # Uygulamanın kendi hata/uyarı satırları (bilgi amaçlı)
 grep -E " (E|W) .*(jarvis|AndroidRuntime|chromium)" "$OUT/logcat.txt" | tail -60 > "$OUT/warnings.txt" || true
