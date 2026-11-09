@@ -63,6 +63,7 @@ class AssistantSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        running = true
         createChannel(this)
         screenOn = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
         ContextCompat.registerReceiver(
@@ -177,6 +178,7 @@ class AssistantSessionService : Service() {
     }
 
     override fun onDestroy() {
+        running = false
         main.removeCallbacksAndMessages(null)
         wake?.stop()
         if (app.core.onMicRequested != null) app.core.onMicRequested = null
@@ -190,6 +192,11 @@ class AssistantSessionService : Service() {
         const val NOTIF_ID = 42
         const val ACTION_LISTEN = "com.fk.jarvis.LISTEN"
         const val ACTION_STOP = "com.fk.jarvis.STOP"
+
+        /** Sistem ekranı için: hizmet şu an çalışıyor mu. */
+        @Volatile
+        var running = false
+            private set
 
         fun createChannel(ctx: Context) {
             val nm = ctx.getSystemService(NotificationManager::class.java)

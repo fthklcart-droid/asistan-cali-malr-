@@ -17,6 +17,16 @@ Kotlin + Jetpack Compose; avatar WebView içinde Canvas ile çizilir. Hedef: **A
 
 Alt çubuktaki **ARAYÜZ** düğmesi veya Ayarlar > Arayüz ile değişir. Arayüz renkleri seçili avatara uyar (ART'ta neon mavi). Avatar çizim kodu (`app/src/main/assets/avatar/`) bu sürümde değiştirilmedi; yalnızca ses sistemine bağlandı.
 
+**Holografik arayüz (5 bölme, alt menü):**
+
+| Bölme | İçerik |
+|---|---|
+| **ASİSTAN** | Avatar, HUD başlığı (durum, mikrofon, yapay zekâ, oturum ışıkları), canlı metin dökümü, onay/seçim/taslak panelleri, ses seviyesi göstergesi, animasyonlu mikrofon küresi, yazılı komut |
+| **SOHBET** | Konuşma geçmişi (yalnızca metin, cihazda), silme |
+| **SUNUCU** | Sağlayıcı kartları (Gemini, OpenAI, Claude, yerel, cihaz içi), API anahtarı, model, proxy/yerel sunucu adresi, gerçek **bağlantı testi** (yanıt süresiyle) |
+| **SİSTEM** | Mikrofon, bildirim, takvim, ekran kontrolü izinleri; konuşma tanıma ve Türkçe seslendirme durumu; arka plan hizmeti; sürüm ve **imza SHA-256** (test/üretim anahtarı) |
+| **AYARLAR** | Avatar stili ve hızı, asistan adı, kesintisiz sohbet, araya girme, sessizlik süresi, konuşma hızı/tonu, uyandırma sözcüğü, gizlilik |
+
 Avatar durumları: **IDLE** (bekleme) · **LISTENING** (dinleme) · **THINKING** (düşünme) · **SPEAKING** (konuşma) · **EXECUTING** (işlem) · **CONFIRMING** (onay bekleme) · **ERROR** (hata).
 
 **Dudak senkronu:** Yanıt önce ses dosyasına sentezlenir, dosyanın gerçek ses genliği (20 ms'lik zarf) çıkarılır ve çalma konumuyla eş zamanlı olarak avatarın yüzüne/ağzına verilir. Bu, genliğe dayalı bir senkrondur; fonem (harf sesi) tabanlı dudak şekli değildir. Sentez başarısız olursa kelime zamanlamasına düşülür.

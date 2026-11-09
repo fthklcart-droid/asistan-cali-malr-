@@ -1,9 +1,9 @@
 package com.fk.jarvis.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -66,13 +65,18 @@ fun DisclosureDialog(title: String, text: String, confirm: String, onConfirm: ()
 /** İlk açılış gizlilik ve izin bilgilendirmesi; kabul edilmeden mikrofon kullanılmaz. */
 @Composable
 fun ConsentScreen(onAccept: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().background(Color(0xF5000306)).statusBarsPadding().navigationBarsPadding()
-            .verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Text("Gizlilik ve izinler", color = JarvisColors.text, fontSize = 22.sp)
-        Text(Disclosures.FIRST_RUN, color = JarvisColors.text, fontSize = 14.sp)
-        SmallButton("KABUL EDİYORUM, DEVAM ET", JarvisColors.gold) { onAccept() }
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+        HoloBackdrop()
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+                .verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            ScreenTitle("SRİUS", "Kurulum · gizlilik ve izinler")
+            HoloPanel(title = "VERİLERİN NASIL KULLANILIR") {
+                Text(Disclosures.FIRST_RUN, color = JarvisColors.text, fontSize = 14.sp, lineHeight = 20.sp)
+            }
+            HoloButton("KABUL EDİYORUM · BAŞLAT", accent = JarvisColors.violet, filled = true, modifier = Modifier.fillMaxWidth()) { onAccept() }
+        }
     }
 }
