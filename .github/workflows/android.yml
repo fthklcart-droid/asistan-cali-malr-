@@ -1,0 +1,32 @@
+name: Android build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Birim ve entegrasyon testleri
+        run: ./gradlew --no-daemon testDebugUnitTest
+      - name: Debug APK
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Test raporu
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-raporu
+          path: app/build/reports/tests/
+      - name: APK yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: FK-JARVIS-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
