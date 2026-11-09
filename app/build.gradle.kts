@@ -35,6 +35,9 @@ android {
             storePassword = "sirius-test"
             keyAlias = "sirius"
             keyPassword = "sirius-test"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
         if (releaseStore != null) {
             create("release") {
@@ -42,6 +45,9 @@ android {
                 storePassword = signingValue("storePassword", "SRIUS_STORE_PASSWORD")
                 keyAlias = signingValue("keyAlias", "SRIUS_KEY_ALIAS")
                 keyPassword = signingValue("keyPassword", "SRIUS_KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
@@ -53,10 +59,26 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Üretim anahtarı verilmediyse imzasız release APK üretilir (app-release-unsigned.apk).
-            if (releaseStore != null) signingConfig = signingConfigs.getByName("release")
+            // Üretim anahtarı verilmediyse test anahtarıyla imzalanır: telefona doğrudan kurulabilir,
+            // hata ayıklanamaz (debuggable=false) release APK. Play Store için kendi anahtarını kullan.
+            signingConfig = signingConfigs.getByName(if (releaseStore != null) "release" else "test")
         }
     }
+    // İki sürüm: "tam" (erişilebilirlik ile ekran kontrolü dahil) ve "basit" (erişilebilirlik hizmeti yok).
+    // Bazı telefonlarda Google Play Protect, dışarıdan yüklenen ve erişilebilirlik hizmeti içeren uygulamaları
+    // engelleyebilir; o durumda "basit" sürüm kurulabilir.
+    flavorDimensions += "surum"
+    productFlavors {
+        create("tam") {
+            dimension = "surum"
+            buildConfigField("boolean", "SCREEN_CONTROL", "true")
+        }
+        create("basit") {
+            dimension = "surum"
+            buildConfigField("boolean", "SCREEN_CONTROL", "false")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

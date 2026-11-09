@@ -189,22 +189,33 @@ fun SettingsPanel(
             )
         }
 
-        Panel {
-            Label("EKRAN KONTROLÜ (ERİŞİLEBİLİRLİK)")
-            Text(
-                if (accessibilityOn) "Durum: açık" else "Durum: kapalı",
-                color = if (accessibilityOn) JarvisColors.gold else JarvisColors.dim, fontSize = 13.sp,
-            )
-            Text(
-                "Açarsan: geri/ana ekran, kaydırma, ekrandaki bir yazıya dokunma, seçili alana yazı yazma, seçili metni kopyalama ve " +
-                    "ekran görüntüsü alma komutları çalışır; diğer uygulamaların üzerinde küçük bir mikrofon düğmesi görünür. Ekran içeriği " +
-                    "yalnızca istediğin işlem anında okunur, saklanmaz ve gönderilmez. Gönder/öde/sil gibi işlemler ve yazı yazma her zaman " +
-                    "onay ister; parola alanlarına yazılmaz. Bazı uygulamalar (ör. bankacılık) bu kontrolü engelleyebilir.",
-                color = JarvisColors.dim, fontSize = 13.sp,
-            )
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("AYARLARI AÇ") { onOpenAccessibility() }
-                SmallButton("DURUMU YENİLE") { onRefreshAccessibility() }
+        if (!com.fk.jarvis.BuildConfig.SCREEN_CONTROL) {
+            Panel {
+                Label("EKRAN KONTROLÜ")
+                Text(
+                    "Bu \"basit\" sürümde erişilebilirlik hizmeti yoktur; uygulama açma, arama, sohbet ve diğer sesli komutlar çalışır. " +
+                        "Geri git, kaydır, dokun, yaz ve ekran görüntüsü komutları için tam sürümü kurmalısın.",
+                    color = JarvisColors.dim, fontSize = 13.sp,
+                )
+            }
+        } else {
+            Panel {
+                Label("EKRAN KONTROLÜ (ERİŞİLEBİLİRLİK)")
+                Text(
+                    if (accessibilityOn) "Durum: açık" else "Durum: kapalı",
+                    color = if (accessibilityOn) JarvisColors.gold else JarvisColors.dim, fontSize = 13.sp,
+                )
+                Text(
+                    "Açarsan: geri/ana ekran, kaydırma, ekrandaki bir yazıya dokunma, seçili alana yazı yazma, seçili metni kopyalama ve " +
+                        "ekran görüntüsü alma komutları çalışır; diğer uygulamaların üzerinde küçük bir mikrofon düğmesi görünür. Ekran içeriği " +
+                        "yalnızca istediğin işlem anında okunur, saklanmaz ve gönderilmez. Gönder/öde/sil gibi işlemler ve yazı yazma her zaman " +
+                        "onay ister; parola alanlarına yazılmaz. Bazı uygulamalar (ör. bankacılık) bu kontrolü engelleyebilir.",
+                    color = JarvisColors.dim, fontSize = 13.sp,
+                )
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SmallButton("AYARLARI AÇ") { onOpenAccessibility() }
+                    SmallButton("DURUMU YENİLE") { onRefreshAccessibility() }
+                }
             }
         }
         Spacer(Modifier.height(24.dp))

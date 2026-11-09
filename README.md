@@ -47,19 +47,29 @@ Avatar durumları: **IDLE** (bekleme) · **LISTENING** (dinleme) · **THINKING**
 
 ## 3. Kurulum
 
-### APK'yı indirme (GitHub Actions)
-1. GitHub → depo → **Actions** → en son "Android build" çalışması (yeşil ✓).
-2. **Artifacts** → `SRIUS-JARVIS-APK` → zip'i aç → `SRIUS_JARVIS_debug.apk`.
-3. Telefona at ve aç; "bilinmeyen kaynaklardan yükleme" iznini ver.
+### APK'yı indirme
+Depodaki **Releases** sayfasında "apk-latest" sürümünde iki dosya var (her derlemede güncellenir):
 
-Debug APK depodaki **test anahtarıyla** imzalanır; böylece yeni sürümler eskisinin üzerine kurulabilir. Play Store için üretim anahtarı kullan (§7).
+| Dosya | İçerik |
+|---|---|
+| `SRIUS_JARVIS_tam.apk` | Tüm özellikler, erişilebilirlik ile ekran kontrolü dahil |
+| `SRIUS_JARVIS_basit.apk` | Erişilebilirlik hizmeti yok (geri git/kaydır/dokun/yaz/ekran görüntüsü komutları çalışmaz); diğer her şey aynı |
+
+İkisi de release (hata ayıklanamaz) derlemedir, v1+v2+v3 imzalıdır ve aynı paket adını kullanır; yalnızca birini kur.
+
+### Telefona kurulamıyorsa
+1. **"Play Protect tarafından engellendi" / "Güvenli olmayan uygulama"**: *Daha fazla ayrıntı → Yine de yükle*. Bu seçenek yoksa Play Store → profil → Play Protect → ⚙ → "Uygulamaları Play Protect ile tara" seçeneğini kurulum süresince kapat, kurduktan sonra tekrar aç. Hâlâ engelleniyorsa **basit** sürümü kur: Google'ın dolandırıcılık koruması, dışarıdan yüklenen ve erişilebilirlik hizmeti isteyen uygulamaları bazı ülkelerde doğrudan engeller.
+2. **"Bilinmeyen uygulamalar yüklenemez"**: Ayarlar → Uygulamalar → (dosyayı açtığın uygulama: Dosyalar, Chrome, Claude…) → *Bilinmeyen uygulamaları yükle* → izin ver.
+3. **"Uygulama yüklenmedi — paket mevcut bir paketle çakışıyor"**: telefonda daha önce farklı imzalı bir SRİUS/FK JARVIS sürümü var. Onu kaldırıp yeniden kur.
+4. **"Ayrıştırma hatası" / "Paket geçersiz"**: dosya eksik inmiş; yeniden indir (tam sürüm yaklaşık 20–25 MB olmalı). Zip içinden değil, `.apk` dosyasının kendisinden kur.
+5. **Gelişmiş Koruma (Advanced Protection) açık**: Android 16'da bu mod dışarıdan uygulama yüklemeyi tamamen engeller; kurulum için geçici olarak kapatman gerekir.
+6. **Erişilebilirlik hizmeti açılamıyor ("Kısıtlanmış ayar")**: Ayarlar → Uygulamalar → SRİUS JARVIS → ⋮ (sağ üst) → *Kısıtlanmış ayarlara izin ver*, sonra Erişilebilirlik'ten hizmeti aç.
 
 ### Kendin derleme
 Android Studio (Meerkat+) ya da JDK 17 + Android SDK 36:
 ```bash
-./gradlew testDebugUnitTest   # testler
-./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
-./gradlew assembleRelease     # imzalı (keystore.properties varsa) ya da imzasız release
+./gradlew testTamReleaseUnitTest                  # testler
+./gradlew assembleTamRelease assembleBasitRelease # app/build/outputs/apk/{tam,basit}/release/*.apk
 ```
 
 ### İlk açılış
@@ -146,8 +156,8 @@ Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü a
 - Kullanıcıdan habersiz işlem yapılmaz; mikrofon açıkken üstte kırmızı gösterge, arka planda bildirim görünür.
 
 ### İmzalama
-- **Debug:** depodaki `signing/sirius-test.jks` (gizli değildir; yalnızca test içindir).
-- **Release (üretim):** `scripts/create_release_keystore.sh` ile anahtar oluştur, `keystore.properties.example`'ı `keystore.properties` olarak kopyalayıp doldur (git'e eklenmez), `./gradlew assembleRelease`. CI'da `SRIUS_KEYSTORE_BASE64`, `SRIUS_STORE_PASSWORD`, `SRIUS_KEY_ALIAS`, `SRIUS_KEY_PASSWORD` sırları tanımlıysa imzalı release APK üretilir; değilse imzasız release APK.
+- **Varsayılan:** depodaki `signing/sirius-test.jks` test anahtarı (gizli değildir). Yayınlanan APK'lar bununla imzalanır; böylece yeni sürümler eskisinin üzerine kurulur.
+- **Üretim / Play Store:** `scripts/create_release_keystore.sh` ile anahtar oluştur, `keystore.properties.example`'ı `keystore.properties` olarak kopyalayıp doldur (git'e eklenmez), `./gradlew assembleRelease`. CI'da `SRIUS_KEYSTORE_BASE64`, `SRIUS_STORE_PASSWORD`, `SRIUS_KEY_ALIAS`, `SRIUS_KEY_PASSWORD` sırları tanımlıysa imzalı release APK üretilir; değilse imzasız release APK.
 
 ---
 

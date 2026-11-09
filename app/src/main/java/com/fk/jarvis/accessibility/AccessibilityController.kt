@@ -17,7 +17,9 @@ object AccessibilityController {
 
     fun perform(action: String, text: String?): ActionResult {
         val svc = JarvisAccessibilityService.instance
-            ?: return ActionResult(false, "Ekran kontrolü için erişilebilirlik hizmeti kapalı. Ayarlar'dan SRİUS JARVIS erişilebilirlik hizmetini açabilirsin.")
+            ?: return ActionResult(false,
+                if (!com.fk.jarvis.BuildConfig.SCREEN_CONTROL) "Bu basit sürümde ekran kontrolü yok. Bu komut için uygulamanın tam sürümünü kurmalısın."
+                else "Ekran kontrolü için erişilebilirlik hizmeti kapalı. Ayarlar'dan SRİUS JARVIS erişilebilirlik hizmetini açabilirsin.")
         return when (action) {
             "back" -> global(svc, AccessibilityService.GLOBAL_ACTION_BACK, "Geri gidildi.")
             "home" -> global(svc, AccessibilityService.GLOBAL_ACTION_HOME, "Ana ekrana dönüldü.")

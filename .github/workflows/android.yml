@@ -35,13 +35,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Birim ve entegrasyon testleri
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon testTamReleaseUnitTest
 
-      - name: Debug APK (test anahtarıyla imzalı)
-        run: ./gradlew --no-daemon assembleDebug
-
-      # Depo sırlarında SRIUS_KEYSTORE_BASE64 vb. tanımlıysa üretim imzalı release APK, değilse imzasız release APK.
-      - name: Release APK
+      # Release APK'lar: hata ayıklanamaz (debuggable=false), v1+v2+v3 imzalı.
+      # Depo sırlarında SRIUS_KEYSTORE_BASE64 vb. tanımlıysa üretim anahtarıyla, değilse depodaki test anahtarıyla imzalanır.
+      - name: Release APK (tam + basit)
         env:
           KS_B64: ${{ secrets.SRIUS_KEYSTORE_BASE64 }}
           SRIUS_STORE_PASSWORD: ${{ secrets.SRIUS_STORE_PASSWORD }}
@@ -52,19 +50,25 @@ jobs:
             echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
             export SRIUS_KEYSTORE="$RUNNER_TEMP/release.jks"
           fi
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon assembleTamRelease assembleBasitRelease
 
-      - name: APK doğrula (imza, SDK sürümleri)
+      - name: APK doğrula (imza şemaları, debuggable, SDK, izinler)
         run: |
           BT="$ANDROID_HOME/build-tools/36.0.0"
-          APK=app/build/outputs/apk/debug/app-debug.apk
-          "$BT/apksigner" verify --print-certs "$APK"
-          "$BT/aapt" dump badging "$APK" | grep -E "^package:|sdkVersion|targetSdkVersion|application-label:"
-          "$BT/aapt" dump badging "$APK" | grep -q "targetSdkVersion:'36'"
-          "$BT/aapt" dump permissions "$APK"
           mkdir -p out
-          cp "$APK" out/SRIUS_JARVIS_debug.apk
-          cp app/build/outputs/apk/release/*.apk out/ 2>/dev/null || true
+          for F in tam basit; do
+            APK="app/build/outputs/apk/$F/release/app-$F-release.apk"
+            echo "== $F =="
+            "$BT/apksigner" verify --verbose --print-certs "$APK" | grep -E "Verified using|Signer #1 certificate DN|Number of signers"
+            "$BT/aapt" dump badging "$APK" | grep -E "^package:|sdkVersion|targetSdkVersion|application-label:|application-debuggable" || true
+            "$BT/aapt" dump badging "$APK" | grep -q "targetSdkVersion:'36'"
+            if "$BT/aapt" dump badging "$APK" | grep -q "application-debuggable"; then echo "HATA: debuggable"; exit 1; fi
+            "$BT/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -c "BIND_ACCESSIBILITY_SERVICE" || true
+            cp "$APK" "out/SRIUS_JARVIS_$F.apk"
+          done
+          if "$BT/aapt" dump xmltree out/SRIUS_JARVIS_basit.apk AndroidManifest.xml | grep -q "BIND_ACCESSIBILITY_SERVICE"; then
+            echo "HATA: basit sürümde erişilebilirlik hizmeti olmamalı"; exit 1
+          fi
           ls -la out
 
       - name: Test raporu
@@ -89,16 +93,16 @@ jobs:
         run: |
           SHORT="${GITHUB_SHA::7}"
           gh release delete apk-latest -y --cleanup-tag || true
-          gh release create apk-latest out/SRIUS_JARVIS_debug.apk \
+          gh release create apk-latest out/SRIUS_JARVIS_tam.apk out/SRIUS_JARVIS_basit.apk \
             --prerelease --target "$GITHUB_SHA" \
-            --title "SRİUS JARVIS — son debug APK ($SHORT)" \
-            --notes "Dal: ${GITHUB_REF_NAME}, commit $SHORT. Test anahtarıyla imzalı debug APK. Gerçek cihazda test edilmedi."
-          cp out/SRIUS_JARVIS_debug.apk "$RUNNER_TEMP/app.apk"
+            --title "SRİUS JARVIS — son APK ($SHORT)" \
+            --notes "Dal: ${GITHUB_REF_NAME}, commit $SHORT. Release (hata ayıklanamaz), v1+v2+v3 imzalı. tam: ekran kontrolü (erişilebilirlik) dahil. basit: erişilebilirlik hizmeti yok — Play Protect tam sürümü engellerse bunu kur. Gerçek cihazda test edilmedi."
+          cp out/SRIUS_JARVIS_tam.apk out/SRIUS_JARVIS_basit.apk "$RUNNER_TEMP/"
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git checkout --orphan apk-builds
           git rm -rf -q --cached . && git clean -fdq
-          cp "$RUNNER_TEMP/app.apk" SRIUS_JARVIS_debug.apk
-          git add SRIUS_JARVIS_debug.apk
-          git commit -q -m "SRİUS JARVIS debug APK ($SHORT)"
+          cp "$RUNNER_TEMP/SRIUS_JARVIS_tam.apk" "$RUNNER_TEMP/SRIUS_JARVIS_basit.apk" .
+          git add SRIUS_JARVIS_tam.apk SRIUS_JARVIS_basit.apk
+          git commit -q -m "SRİUS JARVIS APK ($SHORT)"
           git push -f origin apk-builds
