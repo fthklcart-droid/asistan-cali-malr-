@@ -2,6 +2,7 @@ package com.fk.jarvis.voice
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -12,7 +13,12 @@ import android.speech.SpeechRecognizer
  * Tanıma hizmeti cihaza göre değişir (çoğunlukla Google uygulaması); bazı cihazlarda internet gerekir.
  * Tüm çağrılar ana iş parçacığından yapılmalıdır.
  */
-class AndroidSpeechToText(private val context: Context) : SpeechToTextProvider {
+class JarvisSpeechRecognizer(
+    private val context: Context,
+    /** Uyandırma sözcüğü döngüsü için: varsa cihaz içi (internetsiz, daha az pil) tanıyıcı tercih edilir. */
+    private val preferOnDevice: Boolean = false,
+) : SpeechToTextProvider {
+    private var onDeviceFailed = false
     private var recognizer: SpeechRecognizer? = null
 
     override val isAvailable: Boolean
@@ -25,7 +31,10 @@ class AndroidSpeechToText(private val context: Context) : SpeechToTextProvider {
         }
         // Her oturumda yeni tanıyıcı: bazı cihazlarda tekrar kullanımda ERROR_RECOGNIZER_BUSY oluşuyor.
         destroy()
-        val r = SpeechRecognizer.createSpeechRecognizer(context)
+        val useOnDevice = preferOnDevice && !onDeviceFailed && Build.VERSION.SDK_INT >= 33 &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        val r = if (useOnDevice) SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+        else SpeechRecognizer.createSpeechRecognizer(context)
         recognizer = r
         r.setRecognitionListener(object : RecognitionListener {
             private var finished = false
@@ -39,6 +48,8 @@ class AndroidSpeechToText(private val context: Context) : SpeechToTextProvider {
             override fun onError(error: Int) {
                 if (finished) return
                 finished = true
+                // Cihaz içi Türkçe modeli yoksa bir dahaki sefere normal tanıyıcıya geç.
+                if (useOnDevice && (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED || error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE)) onDeviceFailed = true
                 listener.onError(
                     when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH -> SttError.NO_MATCH

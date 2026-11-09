@@ -1,7 +1,7 @@
 package com.fk.jarvis
 
 import com.fk.jarvis.core.CommandIntent
-import com.fk.jarvis.llm.GeminiProvider
+import com.fk.jarvis.llm.GeminiAIService
 import com.fk.jarvis.llm.LlmException
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -15,13 +15,13 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
-class GeminiProviderTest {
+class GeminiAIServiceTest {
     private lateinit var server: MockWebServer
 
     @Before fun setUp() { server = MockWebServer(); server.start() }
     @After fun tearDown() { server.shutdown() }
 
-    private fun provider(key: String? = "test-key") = GeminiProvider(
+    private fun provider(key: String? = "test-key") = GeminiAIService(
         apiKeyProvider = { key },
         modelProvider = { "gemini-test" },
         baseUrl = server.url("/").toString(),
@@ -75,8 +75,26 @@ class GeminiProviderTest {
         expect(LlmException.Kind.BLOCKED) { provider().propose("x", emptyList(), emptyMap()) }
     }
 
+    @Test fun researchUsesGoogleSearchTool() = runBlocking {
+        server.enqueue(ok("Bugün öne çıkan haberler şunlar."))
+        val text = provider().research("haberler", emptyMap())
+        assertEquals("Bugün öne çıkan haberler şunlar.", text)
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertTrue(body.getJSONArray("tools").getJSONObject(0).has("google_search"))
+    }
+
+    @Test fun proxyModeSendsNoKey() = runBlocking {
+        server.enqueue(ok("""{"intent":"chat","spoken_response":"Merhaba"}"""))
+        val p = GeminiAIService({ null }, { "m" }, { "JARVIS" }, { server.url("/").toString() })
+        assertTrue(p.isConfigured)
+        p.propose("selam", emptyList(), emptyMap())
+        assertEquals(null, server.takeRequest().getHeader("x-goog-api-key"))
+    }
+
     @Test fun missingKeyDoesNotCallNetwork() = runBlocking {
-        expect(LlmException.Kind.NOT_CONFIGURED) { provider(key = null).propose("x", emptyList(), emptyMap()) }
+        val p = GeminiAIService({ null }, { "m" }, { "JARVIS" }, { null })
+        assertFalse(p.isConfigured)
+        expect(LlmException.Kind.NOT_CONFIGURED) { p.propose("x", emptyList(), emptyMap()) }
         assertEquals(0, server.requestCount)
     }
 

@@ -15,7 +15,7 @@ data class ConversationEntry(val fromUser: Boolean, val text: String, val time: 
  * Konuşma geçmişi: yalnızca METİN, cihazda yerel olarak saklanır. Ses kaydı saklanmaz.
  * "Geçmişi sakla" kapalıysa geçmiş yalnızca bellekte tutulur.
  */
-class ConversationRepository(context: Context, private val persist: () -> Boolean) : HistoryStore {
+class ConversationManager(context: Context, private val persist: () -> Boolean) : HistoryStore {
     private val prefs = context.getSharedPreferences("jarvis_history", Context.MODE_PRIVATE)
     private val _entries = MutableStateFlow(if (persist()) load() else emptyList())
     val entries: StateFlow<List<ConversationEntry>> = _entries.asStateFlow()

@@ -8,3 +8,5 @@ local.properties
 captures/
 *.apk
 *.keystore
+keystore.properties
+signing/release*.jks

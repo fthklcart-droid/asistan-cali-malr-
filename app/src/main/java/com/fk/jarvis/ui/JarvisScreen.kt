@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -62,8 +64,9 @@ fun JarvisScreen(
     ui: AssistantUi,
     settings: AssistantSettings,
     micActive: Boolean,
-    cloudConfigured: Boolean,
-    apiKeySaved: () -> Boolean,
+    conversationActive: Boolean,
+    providerConfigured: (String) -> Boolean,
+    apiKeySaved: (String) -> Boolean,
     accessibilityOn: Boolean,
     onMic: () -> Unit,
     onStopSpeaking: () -> Unit,
@@ -75,10 +78,12 @@ fun JarvisScreen(
     onOpenAppSettings: () -> Unit,
     onReplay: () -> Unit,
     onSettingsChange: ((AssistantSettings) -> AssistantSettings) -> Unit,
-    onSaveApiKey: (String?) -> Unit,
+    onSaveApiKey: (String, String?) -> Unit,
     onClearHistory: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onRefreshAccessibility: () -> Unit,
+    onShareDraft: (String) -> Unit,
+    onCloseDraft: () -> Unit,
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
@@ -94,14 +99,19 @@ fun JarvisScreen(
                     activeColor = JarvisColors.danger,
                 )
                 Spacer(Modifier.width(8.dp))
+                val pName = com.fk.jarvis.llm.AIProviderManager.choices.firstOrNull { it.first == settings.provider }?.second ?: "?"
                 Chip(
                     text = when {
-                        settings.provider != "gemini" -> "CİHAZ İÇİ"
-                        cloudConfigured -> "BULUT: GEMINI"
-                        else -> "GEMINI AYARSIZ"
+                        settings.provider == "none" -> "CİHAZ İÇİ"
+                        providerConfigured(settings.provider) -> "YZ: ${pName.uppercase()}"
+                        else -> "${pName.uppercase()} AYARSIZ"
                     },
                     active = false,
                 )
+                if (conversationActive) {
+                    Spacer(Modifier.width(8.dp))
+                    Chip("● OTURUM", active = true, activeColor = JarvisColors.gold)
+                }
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { onRefreshAccessibility(); showSettings = true }) {
                     Icon(Icons.Filled.Settings, contentDescription = "Ayarlar", tint = JarvisColors.text)
@@ -137,6 +147,18 @@ fun JarvisScreen(
                         if (heard.isNotBlank()) Spacer(Modifier.height(6.dp))
                         Label(settings.assistantName.uppercase() + if (ui.lastAnswerFromCloud) " · bulut" else " · cihaz")
                         Text(ui.response, color = JarvisColors.pink, fontSize = 15.sp)
+                    }
+                }
+            }
+
+            // Hazırlanan metin taslağı (ör. Instagram paylaşım metni)
+            ui.draft?.let { draft ->
+                Panel(border = JarvisColors.violet) {
+                    Label("TASLAK · PANOYA KOPYALANDI")
+                    Text(draft, color = JarvisColors.text, fontSize = 14.sp, modifier = Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState()))
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SmallButton("PAYLAŞ…", JarvisColors.gold) { onShareDraft(draft) }
+                        SmallButton("KAPAT") { onCloseDraft() }
                     }
                 }
             }
@@ -214,11 +236,15 @@ fun JarvisScreen(
                     shape = RoundedCornerShape(14.dp),
                 )
                 Spacer(Modifier.width(10.dp))
-                if (ui.state == AssistantState.SPEAKING) {
+                if (ui.state == AssistantState.SPEAKING || ui.state == AssistantState.PROCESSING) {
                     RoundButton("DUR", JarvisColors.gold, onStopSpeaking)
                 } else {
                     val listening = ui.state == AssistantState.LISTENING
-                    RoundButton(if (listening) "BİTİR" else "KONUŞ", if (listening) JarvisColors.danger else JarvisColors.violet, onMic)
+                    RoundButton(if (listening) "TAMAM" else "KONUŞ", if (listening) JarvisColors.danger else JarvisColors.violet, onMic)
+                }
+                if (conversationActive && ui.state != AssistantState.SPEAKING) {
+                    Spacer(Modifier.width(6.dp))
+                    RoundButton("BİTİR", JarvisColors.dim, onStopSpeaking)
                 }
             }
         }
@@ -226,6 +252,7 @@ fun JarvisScreen(
         if (showSettings) {
             SettingsPanel(
                 settings = settings,
+                providerConfigured = providerConfigured,
                 apiKeySaved = apiKeySaved,
                 accessibilityOn = accessibilityOn,
                 onChange = onSettingsChange,
@@ -242,7 +269,7 @@ fun JarvisScreen(
 private val stateLabels = listOf(
     AssistantState.IDLE to "BEKLEME",
     AssistantState.LISTENING to "DİNLİYOR",
-    AssistantState.PROCESSING to "İŞLENİYOR",
+    AssistantState.PROCESSING to "DÜŞÜNÜYOR",
     AssistantState.SPEAKING to "KONUŞUYOR",
     AssistantState.EXECUTING to "YÜRÜTÜYOR",
     AssistantState.CONFIRMING to "ONAY",

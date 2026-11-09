@@ -1,6 +1,8 @@
 package com.fk.jarvis.apps
 
 import android.app.SearchManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -63,6 +65,36 @@ class AndroidAppController(private val context: Context) {
         return openUrl("https://www.google.com/search?q=" + Uri.encode(query))
     }
 
+    /** YouTube uygulamasında arama; uygulama yoksa tarayıcıda YouTube arama sonuçları. */
+    fun youtubeSearch(query: String): ActionResult {
+        val r = start(
+            Intent(Intent.ACTION_SEARCH).setPackage(YOUTUBE_PACKAGE).putExtra(SearchManager.QUERY, query).putExtra("query", query),
+            "YouTube'da \"$query\" aranıyor.", "",
+        )
+        if (r.success) return r
+        return openUrl("https://www.youtube.com/results?search_query=" + Uri.encode(query))
+    }
+
+    fun openGallery(): ActionResult {
+        val r = start(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY), "Galeri açıldı.", "")
+        if (r.success) return r
+        val r2 = start(Intent(Intent.ACTION_VIEW).setType("image/*"), "Galeri açıldı.", "")
+        if (r2.success) return r2
+        return when (val m = findApp("galeri")) {
+            is AppMatch.Found -> launch(m.app)
+            else -> ActionResult(false, "Bu cihazda bir galeri uygulaması bulamadım.")
+        }
+    }
+
+    /** Metni panoya kopyalar. Android 13+ sistem, kopyalandığını ayrıca gösterir. */
+    fun copyToClipboard(text: String, label: String = "JARVIS"): ActionResult = try {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText(label, text))
+        ActionResult(true, "Metni panoya kopyaladım; istediğin yere yapıştırabilirsin.")
+    } catch (e: Exception) {
+        ActionResult(false, "Metni panoya kopyalayamadım.")
+    }
+
     fun openUrl(url: String): ActionResult =
         start(Intent(Intent.ACTION_VIEW, Uri.parse(url)), "Bağlantı açıldı.", "Bu bağlantıyı açabilecek bir uygulama bulunamadı.")
 
@@ -91,7 +123,7 @@ class AndroidAppController(private val context: Context) {
         Intent(AlarmClock.ACTION_SET_ALARM)
             .putExtra(AlarmClock.EXTRA_HOUR, hour)
             .putExtra(AlarmClock.EXTRA_MINUTES, minute)
-            .putExtra(AlarmClock.EXTRA_MESSAGE, "FK JARVIS")
+            .putExtra(AlarmClock.EXTRA_MESSAGE, "SRİUS JARVIS")
             .putExtra(AlarmClock.EXTRA_SKIP_UI, false),
         "Saat uygulamasında %02d:%02d alarmı hazırlandı.".format(hour, minute),
         "Bu cihazda alarm kurabilen bir saat uygulaması bulunamadı.",
@@ -100,7 +132,7 @@ class AndroidAppController(private val context: Context) {
     fun setTimer(seconds: Int): ActionResult = start(
         Intent(AlarmClock.ACTION_SET_TIMER)
             .putExtra(AlarmClock.EXTRA_LENGTH, seconds)
-            .putExtra(AlarmClock.EXTRA_MESSAGE, "FK JARVIS")
+            .putExtra(AlarmClock.EXTRA_MESSAGE, "SRİUS JARVIS")
             .putExtra(AlarmClock.EXTRA_SKIP_UI, false),
         "${formatDuration(seconds)} zamanlayıcı saat uygulamasına gönderildi.",
         "Bu cihazda zamanlayıcı kurabilen bir saat uygulaması bulunamadı.",
@@ -115,11 +147,13 @@ class AndroidAppController(private val context: Context) {
             "battery" -> Intent.ACTION_POWER_USAGE_SUMMARY
             "location" -> Settings.ACTION_LOCATION_SOURCE_SETTINGS
             "accessibility" -> Settings.ACTION_ACCESSIBILITY_SETTINGS
+            "notifications" -> Settings.ACTION_APP_NOTIFICATION_SETTINGS
             "app" -> Settings.ACTION_APPLICATION_DETAILS_SETTINGS
             else -> Settings.ACTION_SETTINGS
         }
         val intent = Intent(action)
         if (target == "app") intent.data = Uri.fromParts("package", context.packageName, null)
+        if (target == "notifications") intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         val r = start(intent, "Ayar ekranı açıldı.", "")
         return if (r.success) r else start(Intent(Settings.ACTION_SETTINGS), "Ayarlar açıldı.", "Ayarlar açılamadı.")
     }
@@ -152,6 +186,8 @@ class AndroidAppController(private val context: Context) {
     }
 
     companion object {
+        const val YOUTUBE_PACKAGE = "com.google.android.youtube"
+
         fun formatDuration(seconds: Int): String {
             val h = seconds / 3600; val m = (seconds % 3600) / 60; val s = seconds % 60
             return listOfNotNull(

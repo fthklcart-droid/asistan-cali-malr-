@@ -13,12 +13,14 @@ import com.fk.jarvis.voice.SttListener
 sealed class RouteResult {
     data class Done(val success: Boolean, val message: String) : RouteResult()
     data class NeedsAppChoice(val candidates: List<AppInfo>, val proposal: CommandProposal) : RouteResult()
+    /** Eylem için bir Android çalışma zamanı izni gerekiyor (ör. takvim). İzin verilirse eylem yeniden denenir. */
+    data class NeedsPermission(val permission: String, val message: String, val proposal: CommandProposal) : RouteResult()
 }
 
 /** Kullanıcıya gösterilen sabit mesajlar. */
 object Messages {
     const val MIC_DENIED_HELP =
-        "Mikrofon izni verilmedi. Sesli komut için: Ayarlar > Uygulamalar > FK JARVIS > İzinler > Mikrofon > " +
+        "Mikrofon izni verilmedi. Sesli komut için: Ayarlar > Uygulamalar > SRİUS JARVIS > İzinler > Mikrofon > " +
             "\"Uygulamayı kullanırken izin ver\" seçeneğini aç. Bu sırada yazıyla komut gönderebilirsin."
 }
 
@@ -48,4 +50,15 @@ interface HistoryStore {
 
 interface CommandExecutor {
     fun execute(p: CommandProposal, chosenApp: AppInfo? = null): RouteResult
+}
+
+/** Asistan konuşurken kullanıcının sesini algılayan izleyici (barge-in). */
+interface BargeInMonitor {
+    fun start(onSpeech: () -> Unit): Boolean
+    fun stop()
+}
+
+object NoBargeIn : BargeInMonitor {
+    override fun start(onSpeech: () -> Unit) = false
+    override fun stop() {}
 }

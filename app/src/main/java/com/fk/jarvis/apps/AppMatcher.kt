@@ -92,3 +92,16 @@ object AppMatcher {
         return if (best.size == 1) AppMatch.Found(best[0]) else AppMatch.Ambiguous(best.sortedBy { it.label })
     }
 }
+
+/** Takvim etkinliklerini sesli okunacak Türkçe cümleye çevirir (saf fonksiyon, test edilebilir). */
+object AgendaFormatter {
+    data class Item(val title: String, val begin: Long, val allDay: Boolean)
+
+    fun describe(events: List<Item>, timeZone: java.util.TimeZone = java.util.TimeZone.getDefault()): String {
+        if (events.isEmpty()) return "Bugün takviminde kayıtlı bir etkinlik görünmüyor."
+        val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.forLanguageTag("tr-TR")).apply { this.timeZone = timeZone }
+        val parts = events.take(8).map { e -> if (e.allDay) "gün boyu ${e.title}" else "${fmt.format(java.util.Date(e.begin))} ${e.title}" }
+        val more = if (events.size > 8) " ve ${events.size - 8} etkinlik daha" else ""
+        return "Bugün takviminde ${events.size} etkinlik var: ${parts.joinToString(", ")}$more."
+    }
+}

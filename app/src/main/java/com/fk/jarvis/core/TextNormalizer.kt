@@ -17,8 +17,10 @@ object TextNormalizer {
         s = s.replace(Regex("[.:]+(?=\\s|$)"), " ")
         s = s.replace(Regex("\\s+"), " ").trim()
         for (w in wakeWords.sortedByDescending { it.length }) {
-            if (s.startsWith("$w ") || s == w) {
-                s = s.removePrefix(w).trim()
+            // "JARVIS" Türkçe küçük harfe "jarvıs" olarak çevrilir; karşılaştırmada ı/i eşit sayılır.
+            val head = s.take(w.length).replace('ı', 'i')
+            if (head == w && (s.length == w.length || s[w.length] == ' ')) {
+                s = s.drop(w.length).trim()
                 break
             }
         }

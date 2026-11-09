@@ -60,7 +60,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         val v = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_btn_speak_now)
             background = bg
-            contentDescription = "FK JARVIS mikrofon"
+            contentDescription = "SRİUS JARVIS mikrofon"
             val pad = size / 5
             setPadding(pad, pad, pad, pad)
         }
@@ -100,7 +100,7 @@ class JarvisAccessibilityService : AccessibilityService() {
             overlay = null
         }
 
-        val orchestrator = (application as JarvisApp).orchestrator
+        val orchestrator = (application as JarvisApp).core
         scope?.launch {
             orchestrator.ui.collect { ui ->
                 val color = when (ui.state) {
@@ -117,11 +117,11 @@ class JarvisAccessibilityService : AccessibilityService() {
     }
 
     private fun onOverlayTap() {
-        val orchestrator = (application as JarvisApp).orchestrator
+        val orchestrator = (application as JarvisApp).core
         when (orchestrator.ui.value.state) {
             AssistantState.LISTENING -> orchestrator.stopListening()
-            AssistantState.SPEAKING -> orchestrator.stopSpeaking()
-            else -> orchestrator.startListening()
+            AssistantState.SPEAKING -> orchestrator.startListening() // konuşmayı kesip dinle
+            else -> orchestrator.startVoiceSession()
         }
     }
 

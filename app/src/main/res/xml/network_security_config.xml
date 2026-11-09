@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bulut sağlayıcılar her zaman https kullanır (kodda EndpointPolicy ile zorunlu).
+  http yalnızca kullanıcının girdiği YEREL AĞDAKİ model sunucusu (ör. Ollama) için gereklidir;
+  kod, http adresini yalnızca özel ağ/loopback IP'lerinde kabul eder.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

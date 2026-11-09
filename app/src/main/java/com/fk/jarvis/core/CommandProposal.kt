@@ -27,6 +27,15 @@ enum class CommandIntent(val wire: String) {
     OPEN_SETTINGS("open_settings"),
     OPEN_CAMERA("open_camera"),
     SCREEN_ACTION("screen_action"),
+    YOUTUBE_SEARCH("youtube_search"),
+    OPEN_GALLERY("open_gallery"),
+    CLOSE_APP("close_app"),
+    SCREENSHOT("screenshot"),
+    COPY_TEXT("copy_text"),
+    DRAFT_TEXT("draft_text"),
+    TODAY_AGENDA("today_agenda"),
+    RESEARCH("research"),
+    END_SESSION("end_session"),
     STOP("stop"),
     UNKNOWN("unknown");
 
@@ -61,11 +70,11 @@ data class CommandProposal(
          * çağıran taraf bunu anlaşılır bir hataya dönüştürür.
          */
         fun fromJson(text: String): CommandProposal {
-            val cleaned = text.trim()
-                .removePrefix("```json").removePrefix("```")
-                .removeSuffix("```")
-                .trim()
-            val o = JSONObject(cleaned)
+            // Bazı modeller JSON'u açıklama ya da kod bloğu içine koyar: ilk '{' ile son '}' arası alınır.
+            val start = text.indexOf('{')
+            val end = text.lastIndexOf('}')
+            require(start >= 0 && end > start) { "no json object" }
+            val o = JSONObject(text.substring(start, end + 1))
             val args = mutableMapOf<String, String>()
             o.optJSONObject("arguments")?.let { a ->
                 val keys = a.keys()

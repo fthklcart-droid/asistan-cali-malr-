@@ -7,17 +7,17 @@ import com.fk.jarvis.apps.ActionResult
 
 /**
  * Seviye B — ekran etkileşimi. Yalnızca kullanıcı Ayarlar > Erişilebilirlik'ten
- * FK JARVIS hizmetini kendisi açtıysa çalışır. Ekran içeriği yalnızca istenen tek işlem
+ * SRİUS JARVIS hizmetini kendisi açtıysa çalışır. Ekran içeriği yalnızca istenen tek işlem
  * için, o anda okunur; saklanmaz ve hiçbir yere gönderilmez.
  * Parola alanlarına yazılmaz; CAPTCHA/biyometri gibi korumalar aşılmaya çalışılmaz.
  */
-object AccessibilityActionProvider {
+object AccessibilityController {
 
     fun isAvailable(): Boolean = JarvisAccessibilityService.instance != null
 
     fun perform(action: String, text: String?): ActionResult {
         val svc = JarvisAccessibilityService.instance
-            ?: return ActionResult(false, "Ekran kontrolü için erişilebilirlik hizmeti kapalı. Ayarlar'dan FK JARVIS erişilebilirlik hizmetini açabilirsin.")
+            ?: return ActionResult(false, "Ekran kontrolü için erişilebilirlik hizmeti kapalı. Ayarlar'dan SRİUS JARVIS erişilebilirlik hizmetini açabilirsin.")
         return when (action) {
             "back" -> global(svc, AccessibilityService.GLOBAL_ACTION_BACK, "Geri gidildi.")
             "home" -> global(svc, AccessibilityService.GLOBAL_ACTION_HOME, "Ana ekrana dönüldü.")
@@ -25,10 +25,27 @@ object AccessibilityActionProvider {
             "notifications" -> global(svc, AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS, "Bildirimler açıldı.")
             "scroll_down" -> scroll(svc, true)
             "scroll_up" -> scroll(svc, false)
+            "screenshot" -> if (android.os.Build.VERSION.SDK_INT >= 28)
+                global(svc, AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT, "Ekran görüntüsü alındı; galeride Ekran görüntüleri klasöründe bulabilirsin.")
+            else ActionResult(false, "Bu Android sürümünde ekran görüntüsünü ben alamıyorum.")
+            "copy" -> copy(svc)
             "click" -> click(svc, text.orEmpty())
             "type" -> type(svc, text.orEmpty())
             else -> ActionResult(false, "Bu ekran işlemi desteklenmiyor.")
         }
+    }
+
+    /** Şu an önde olan uygulamanın paket adı (yalnızca istenen işlem anında okunur). */
+    fun foregroundPackage(): String? = JarvisAccessibilityService.instance?.rootInActiveWindow?.packageName?.toString()
+
+    private fun copy(svc: AccessibilityService): ActionResult {
+        val root = svc.rootInActiveWindow ?: return ActionResult(false, "Ekran içeriğine erişilemedi.")
+        val node = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            ?: findFirst(root) { it.isFocused || it.isAccessibilityFocused }
+            ?: return ActionResult(false, "Kopyalanacak seçili bir metin bulamadım. Önce metni seç.")
+        if (node.isPassword) return ActionResult(false, "Parola alanlarından metin kopyalamıyorum.")
+        return if (node.performAction(AccessibilityNodeInfo.ACTION_COPY)) ActionResult(true, "Seçili metin panoya kopyalandı.")
+        else ActionResult(false, "Bu alandaki metni kopyalayamadım.")
     }
 
     private fun global(svc: AccessibilityService, id: Int, ok: String): ActionResult =

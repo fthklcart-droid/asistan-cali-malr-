@@ -14,6 +14,10 @@ data class AssistantUi(
     val confirmQuestion: String? = null,
     val appChoices: List<AppInfo> = emptyList(),
     val micDenied: Boolean = false,
-    /** Son yanıt bulutta (Gemini) mı üretildi, cihazda mı? */
+    /** Son yanıt bulutta (yapay zekâ sağlayıcısı) mı üretildi, cihazda mı? */
     val lastAnswerFromCloud: Boolean = false,
+    /** Hazırlanan metin taslağı (ör. Instagram paylaşım metni); ekranda gösterilir, panoya kopyalanır. */
+    val draft: String? = null,
+    /** Arayüzün kullanıcıdan istemesi gereken Android izni (ör. takvim). */
+    val permissionRequest: String? = null,
 )

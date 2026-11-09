@@ -68,8 +68,30 @@ class IntentClassifierTest {
     @Test fun dial() = assertEquals("05551234567", c.classify("0555 123 45 67 numarasını ara")!!.arg("number"))
     @Test fun home() = assertEquals(CommandIntent.GO_HOME, intent("ana ekrana dön"))
 
+    @Test fun newCommands() {
+        assertEquals(CommandIntent.TODAY_AGENDA, intent("JARVIS, bugün neler yapmam gerekiyor?"))
+        assertEquals(CommandIntent.RESEARCH, intent("JARVIS, bana günlük haberleri oku."))
+        assertEquals(CommandIntent.RESEARCH, intent("JARVIS, internette araştırma yap."))
+        assertNull(c.classify("internette araştırma yap")!!.arg("query"))
+        assertEquals("elektrikli arabalar", c.classify("elektrikli arabalar hakkında araştırma yap")!!.arg("query"))
+        assertEquals(CommandIntent.SCREENSHOT, intent("JARVIS, ekran görüntüsü almamı sağla."))
+        assertEquals(CommandIntent.COPY_TEXT, intent("JARVIS, bu metni kopyala."))
+        assertEquals(CommandIntent.OPEN_GALLERY, intent("galeriyi aç"))
+        assertEquals(CommandIntent.OPEN_APP, intent("JARVIS, CapCut'ı başlat."))
+        assertEquals("capcut", c.classify("JARVIS, CapCut'ı başlat.")!!.arg("app_name"))
+        assertEquals(CommandIntent.OPEN_APP, intent("Chrome'u aç"))
+        assertEquals(CommandIntent.VOLUME_UP, intent("JARVIS, sesini yükselt."))
+        val yt = c.classify("YouTube'da lofi müzik ara")!!
+        assertEquals(CommandIntent.YOUTUBE_SEARCH, yt.intent); assertEquals("lofi müzik", yt.arg("query"))
+        val close = c.classify("YouTube'u kapat")!!
+        assertEquals(CommandIntent.CLOSE_APP, close.intent); assertEquals("youtube", close.arg("app_name"))
+        assertEquals(CommandIntent.END_SESSION, intent("görüşürüz"))
+        assertEquals(CommandIntent.SHARE_TEXT, intent("paylaşım ekranını aç"))
+        assertEquals(CommandIntent.OPEN_APP, intent("JARVIS YOUTUBE'U AÇ")) // büyük harf "JARVIS" -> "jarvıs"
+    }
+
     @Test fun freeFormGoesToLlm() {
-        assertNull(c.classify("Bugün ne yapmam gerekiyor?"))
+        assertNull(c.classify("Bana bir Instagram paylaşım metni hazırla"))
         assertNull(c.classify("Bana kısa bir özet ver."))
         assertNull(c.classify("annemi ara")) // belirsiz: kişi araması yerel olarak yapılmaz
     }

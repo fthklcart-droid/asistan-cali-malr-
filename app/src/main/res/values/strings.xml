@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FK JARVIS</string>
-    <string name="accessibility_label">FK JARVIS ekran kontrolü</string>
-    <string name="accessibility_description">FK JARVIS sesli komutlarla geri gitme, ana ekrana dönme, kaydırma, ekrandaki bir yazıya dokunma ve seçili alana yazı yazma işlemlerini yapabilmek için bu hizmeti kullanır. Ekran içeriği yalnızca istediğin işlem anında okunur; saklanmaz ve hiçbir sunucuya gönderilmez. Gönderme, ödeme, silme gibi sonuç doğuran işlemler ve yazı yazma her zaman onayını ister. Parola alanlarına yazı yazılmaz. Hizmet ayrıca diğer uygulamaların üzerinde küçük bir mikrofon düğmesi gösterir.</string>
+    <string name="app_name">SRİUS JARVIS</string>
+    <string name="accessibility_label">SRİUS JARVIS ekran kontrolü</string>
+    <string name="accessibility_description">SRİUS JARVIS sesli komutlarla geri gitme, ana ekrana dönme, kaydırma, ekrandaki bir yazıya dokunma, seçili alana yazı yazma, seçili metni kopyalama ve ekran görüntüsü alma işlemlerini yapabilmek için bu hizmeti kullanır. Ekran içeriği yalnızca istediğin işlem anında okunur; saklanmaz ve hiçbir sunucuya gönderilmez. Gönderme, ödeme, silme gibi sonuç doğuran işlemler ve yazı yazma her zaman onayını ister. Parola alanlarına yazı yazılmaz. Hizmet ayrıca diğer uygulamaların üzerinde küçük bir mikrofon düğmesi gösterir.</string>
 </resources>

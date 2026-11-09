@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Mikrofon oturumlarını yönetir. Mikrofon yalnızca açık kullanıcı etkileşimiyle
  * (düğme) ya da asistanın sorduğu soruya yanıt için kısa süreli açılır; sürekli dinleme yoktur.
  */
-class VoiceInputManager(
+class VoiceEngine(
     private val provider: SpeechToTextProvider,
     private val permissions: PermissionManager,
 ) : SpeechInput {

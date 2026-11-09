@@ -16,6 +16,10 @@ class IntentClassifier {
         if (n in setOf("dur", "sus", "sessiz ol", "kes", "yeter", "tamam yeter", "iptal", "vazgeç", "konuşmayı kes")) {
             return p(CommandIntent.STOP, spoken = "")
         }
+        // 1b) Sohbeti bitirme
+        if (n in setOf("görüşürüz", "bu kadar", "teşekkürler bu kadar", "teşekkür ederim bu kadar", "sohbeti bitir", "oturumu kapat", "şimdilik bu kadar")) {
+            return p(CommandIntent.END_SESSION)
+        }
         // 2) Varlık kontrolü
         if ("duyuyor musun" in n || "orada mısın" in n || "burada mısın" in n) {
             return p(CommandIntent.CHAT, spoken = "Evet, seni duyuyorum.")
@@ -37,6 +41,46 @@ class IntentClassifier {
         if ("tarih" in n && ("ne" in n.split(" ") || "kaç" in n || "bugün" in n) ||
             "günlerden ne" in n || "hangi gündeyiz" in n || "bugün ayın kaçı" in n
         ) return p(CommandIntent.TELL_DATE)
+
+        // 5b) Ajanda (cihazdaki takvimden okunur)
+        if (Regex("bugün ne(ler)? yapmam gerek|bugünkü (planım|programım|ajandam)|takvimimde (ne|neler) var|ajandam(da)? (ne|neler)|bugün (neler|ne) var").containsMatchIn(n)) {
+            return p(CommandIntent.TODAY_AGENDA)
+        }
+        // 5c) Haberler ve internet araştırması
+        if (Regex("haber(ler)?i oku|günlük haber|gündemi (oku|anlat|özetle)|bugünün haberleri|son dakika haber").containsMatchIn(n)) {
+            return p(CommandIntent.RESEARCH, args = mapOf("query" to "Bugünün Türkiye ve dünyadan en önemli haberleri"))
+        }
+        if (n == "internette araştırma yap" || n == "araştırma yap" || n == "internette araştır") {
+            return p(CommandIntent.RESEARCH)
+        }
+        Regex("^(.+?) (?:hakkında|ile ilgili|konusunda) (?:internette )?(?:araştırma yap|araştır|bilgi bul)$").find(s)?.let {
+            return p(CommandIntent.RESEARCH, args = mapOf("query" to it.groupValues[1].trim()))
+        }
+        Regex("^(?:internette )?(.+?) (?:araştır|araştırır mısın)$").find(s)?.let {
+            return p(CommandIntent.RESEARCH, args = mapOf("query" to it.groupValues[1].removePrefix("internette ").trim()))
+        }
+        // 5d) Ekran görüntüsü ve kopyalama
+        if ("ekran görüntüsü" in n || "ekran resmi" in n || "screenshot" in n) return p(CommandIntent.SCREENSHOT)
+        if (Regex("seçili (metni|yazıyı) kopyala|ekrandaki (seçili )?(metni|yazıyı) kopyala").containsMatchIn(n)) {
+            return p(CommandIntent.SCREEN_ACTION, args = mapOf("action" to "copy"))
+        }
+        Regex("^(?:şunu|şu metni) kopyala (.+)$").find(n)?.let { return p(CommandIntent.COPY_TEXT, args = mapOf("text" to it.groupValues[1].trim())) }
+        if (Regex("^(bu metni|bunu|metni|yanıtı|cevabı|son yanıtı|az önceki yanıtı)? ?kopyala$").matches(n) || n == "panoya kopyala") {
+            return p(CommandIntent.COPY_TEXT)
+        }
+        // 5e) YouTube'da arama
+        Regex("^youtube'?(?:da|de|ta|te|dan|den) (.+?) (?:ara|arat|bul|aç|oynat)$").find(n)?.let {
+            return p(CommandIntent.YOUTUBE_SEARCH, args = mapOf("query" to it.groupValues[1].removeSuffix(" diye").trim()))
+        }
+        Regex("^(.+?) (?:diye )?youtube (?:ara|arat|bul)$").find(s)?.let {
+            return p(CommandIntent.YOUTUBE_SEARCH, args = mapOf("query" to it.groupValues[1].trim()))
+        }
+        // 5f) Galeri
+        if (Regex("\\bgaleri(yi|y)? ?(aç|göster|başlat)|fotoğraflarımı (aç|göster)").containsMatchIn(s)) {
+            return p(CommandIntent.OPEN_GALLERY, spoken = "Galeriyi açıyorum.")
+        }
+        // 5g) Paylaşım ekranı (son yanıtı paylaşır; onay istenir)
+        if ("paylaşım ekranını aç" in n || n == "bunu paylaş" || n == "paylaş") return p(CommandIntent.SHARE_TEXT)
 
         // 6) Ana ekran
         if ("ana ekran" in n || "ana sayfaya dön" in n) return p(CommandIntent.GO_HOME, spoken = "Ana ekrana dönüyorum.")
@@ -86,6 +130,13 @@ class IntentClassifier {
         // 15) Bağlantı açma
         Regex("((?:https?://)?(?:www\\.)?[a-z0-9-]+\\.(?:com|net|org|tr|io|dev|app)(?:\\.tr)?(?:/\\S*)?)").find(s)?.let { m ->
             if (Regex("\\b(aç|git|gir)\\b").containsMatchIn(s)) return p(CommandIntent.OPEN_URL, args = mapOf("url" to m.value))
+        }
+        // 15b) Uygulama kapatma (Android başka uygulamaları kapatmaya izin vermez; arka plana alınır)
+        Regex("^(.+?) (?:uygulamasını )?(?:kapat|kapatır mısın)$").find(s)?.let {
+            val name = it.groupValues[1].trim()
+            if (name !in setOf("ses", "sesi", "wifi", "wi-fi", "bluetooth", "ekran", "ekranı", "alarm", "alarmı", "mikrofon", "mikrofonu")) {
+                return p(CommandIntent.CLOSE_APP, args = mapOf("app_name" to name))
+            }
         }
         // 16) Uygulama açma
         Regex("^(.+?) (?:uygulamasını |uygulamasini |uygulaması |app )?(?:aç|açar mısın|açabilir misin|açsana|başlat|çalıştır)$").find(s)?.let {

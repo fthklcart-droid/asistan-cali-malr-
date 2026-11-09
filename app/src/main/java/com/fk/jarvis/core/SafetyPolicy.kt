@@ -21,8 +21,8 @@ sealed class SafetyDecision {
  */
 object SafetyPolicy {
 
-    val settingsTargets = setOf("wifi", "bluetooth", "display", "sound", "battery", "location", "accessibility", "general", "app")
-    val screenActions = setOf("back", "home", "recents", "notifications", "scroll_down", "scroll_up", "click", "type")
+    val settingsTargets = setOf("wifi", "bluetooth", "display", "sound", "battery", "location", "accessibility", "notifications", "general", "app")
+    val screenActions = setOf("back", "home", "recents", "notifications", "scroll_down", "scroll_up", "click", "type", "copy")
 
     /** Bu sözcükleri içeren ekran etkileşimleri her zaman onay ister. */
     val sensitiveWords = listOf(
@@ -43,7 +43,27 @@ object SafetyPolicy {
 
             CommandIntent.CHAT, CommandIntent.CLARIFY, CommandIntent.TELL_TIME, CommandIntent.TELL_DATE,
             CommandIntent.REPEAT_LAST, CommandIntent.STOP, CommandIntent.VOLUME_UP, CommandIntent.VOLUME_DOWN,
-            CommandIntent.GO_HOME, CommandIntent.OPEN_CAMERA -> allowOrConfirm(p, modelWantsConfirm)
+            CommandIntent.GO_HOME, CommandIntent.OPEN_CAMERA, CommandIntent.OPEN_GALLERY, CommandIntent.SCREENSHOT,
+            CommandIntent.TODAY_AGENDA, CommandIntent.END_SESSION, CommandIntent.RESEARCH -> allowOrConfirm(p, modelWantsConfirm)
+
+            CommandIntent.CLOSE_APP -> {
+                if (p.arg("app_name") == null) SafetyDecision.Reject("Hangi uygulamayı kapatmamı istediğini anlayamadım.")
+                else allowOrConfirm(p, modelWantsConfirm)
+            }
+
+            CommandIntent.YOUTUBE_SEARCH -> {
+                val q = p.arg("query") ?: return SafetyDecision.Reject("YouTube'da ne aramamı istediğini anlayamadım.")
+                if (q.length > 300) SafetyDecision.Reject("Arama metni çok uzun.") else allowOrConfirm(p, modelWantsConfirm)
+            }
+
+            // Metin hazırlamak ve panoya kopyalamak yayınlamak değildir; paylaşım ayrıca onay ister.
+            CommandIntent.DRAFT_TEXT -> {
+                val t = p.arg("text") ?: return SafetyDecision.Reject("Hazırlanacak metni oluşturamadım.")
+                if (t.length > 5000) SafetyDecision.Reject("Metin çok uzun.") else allowOrConfirm(p, modelWantsConfirm)
+            }
+            CommandIntent.COPY_TEXT -> {
+                if ((p.arg("text")?.length ?: 0) > 10_000) SafetyDecision.Reject("Metin çok uzun.") else allowOrConfirm(p, modelWantsConfirm)
+            }
 
             CommandIntent.OPEN_APP -> {
                 if (p.arg("app_name") == null && p.target.isNullOrBlank()) SafetyDecision.Reject("Hangi uygulamayı açmamı istediğini anlayamadım.")

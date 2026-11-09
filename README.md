@@ -1,195 +1,188 @@
-# FK JARVIS — Android Sesli Asistan
+# SRİUS JARVIS — Android 16 Kişisel Yapay Zekâ Asistanı
 
-Türkçe sesli komutları anlayan, Gemini ile sohbet edebilen, telefondaki uygulamaları güvenli biçimde açıp kontrol edebilen Android asistanı. İki farklı animasyonlu arayüzü vardır:
+Telefonunu sesle yönetebildiğin, seninle Türkçe konuşan, yapay zekâ destekli kişisel asistan.
+Kotlin + Jetpack Compose; avatar WebView içinde Canvas ile çizilir. Hedef: **Android 16 (targetSdk 36)**, en düşük Android 8 (minSdk 26).
+
+> **Durum özeti (dürüst):** Kod derleniyor ve 71 birim/entegrasyon testi geçiyor; APK GitHub Actions'ta üretiliyor.
+> **Hiçbir özellik gerçek bir Android 16 cihazda test edilmedi** (geliştirme ortamında cihaz/emülatör yoktu). Ayrıntı: [§9](#9-test-ve-doğrulama-durumu).
+
+---
+
+## 1. Arayüz ve avatar
 
 | Arayüz | Görünüm |
 |---|---|
-| **NEON** | Parçacık küresinden galaksiye, oradan mor/altın neon bir figüre dönüşen açılış; uzun ışık saçları, yıldırımlar, duman. |
-| **ART** | Alttaki ışık noktasından akan parçacıklarla "ASSEMBLING… %" montajı; turkuaz kontur çizgili büst, turuncu parlayan yüz, parçacıklı dağlar ve altın damarlar. |
+| **ART** (varsayılan) | Siyah zemin, neon mavi holografik büst: alttaki ışık noktasından akan parçacıklarla "ASSEMBLING… %" montajı, kontur çizgili baş, turuncu parlayan yüz, parçacıklı dağlar. |
+| **NEON** | Parçacık küresinden galaksiye, oradan mor/altın neon figüre dönüşen açılış; ışık saçları, yıldırımlar. |
 
-Arayüzler alt çubuktaki **ARAYÜZ: NEON / ART** düğmesiyle ya da Ayarlar > Arayüz bölümünden değiştirilir. İkisi de aynı asistan durumlarına (bekleme, dinleme, işleme, konuşma, yürütme, onay, hata) tepki verir.
+Alt çubuktaki **ARAYÜZ** düğmesi veya Ayarlar > Arayüz ile değişir. Arayüz renkleri seçili avatara uyar (ART'ta neon mavi). Avatar çizim kodu (`app/src/main/assets/avatar/`) bu sürümde değiştirilmedi; yalnızca ses sistemine bağlandı.
 
----
+Avatar durumları: **IDLE** (bekleme) · **LISTENING** (dinleme) · **THINKING** (düşünme) · **SPEAKING** (konuşma) · **EXECUTING** (işlem) · **CONFIRMING** (onay bekleme) · **ERROR** (hata).
 
-## 1. Mimari raporu
-
-Depo başlangıçta boştu (yalnızca README). Şartnamede "mevcut avatar" olarak geçen görsel katman, paylaşılan iki referans videoya göre bu projede yazıldı (`app/src/main/assets/avatar/`). Asistan altyapısı bu avatarın gerçek JS API'sine bağlandı.
-
-```
-app/src/main/
-├── assets/avatar/          index.html + avatar.js (NEON) + art.js (ART) — Canvas 2D, WebView içinde
-└── java/com/fk/jarvis/
-    ├── JarvisApp.kt                    Bileşenlerin kurulumu (Activity ve erişilebilirlik hizmeti aynı orkestratörü paylaşır)
-    ├── MainActivity.kt                 Compose arayüz + mikrofon izni
-    ├── core/
-    │   ├── AssistantOrchestrator.kt    İstek akışı ve durum makinesi (IDLE/LISTENING/PROCESSING/SPEAKING/EXECUTING/CONFIRMING/ERROR)
-    │   ├── IntentClassifier.kt         İnternetsiz, kural tabanlı Türkçe komut sınıflandırıcı
-    │   ├── SafetyPolicy.kt             İzin listesi, argüman doğrulama, onay kuralları
-    │   ├── CommandRouter.kt            Doğrulanmış komutu Android eylemine yönlendirme
-    │   ├── CommandProposal.kt          Yapılandırılmış komut şeması (intent/target/arguments/requires_confirmation/spoken_response)
-    │   └── Ports.kt                    Değiştirilebilir arayüzler (SpeechInput, SpeechOutput, HistoryStore, CommandExecutor)
-    ├── llm/        LLMProvider (arayüz), GeminiProvider, AssistantPrompt (sistem talimatı + JSON şeması)
-    ├── voice/      SpeechToTextProvider (arayüz), AndroidSpeechToText, VoiceInputManager, TextToSpeechManager
-    ├── apps/       AndroidAppController (Seviye A intent'ler), AppMatcher (cihazdaki uygulama listesiyle eşleştirme)
-    ├── accessibility/  JarvisAccessibilityService + AccessibilityActionProvider (Seviye B, kullanıcı onaylı)
-    ├── permissions/    PermissionManager
-    ├── avatar/         AvatarBridge (asistan durumu → avatar JS API'si)
-    ├── data/           SecureKeyStore (Keystore ile şifreli API anahtarı), SettingsRepository, ConversationRepository
-    └── ui/             JarvisScreen, SettingsPanel, Theme
-```
-
-Şartnamedeki modül adlarının karşılıkları: `VoiceInputManager`, `SpeechToTextProvider`, `AssistantOrchestrator`, `LLMProvider`/`GeminiProvider`, `IntentClassifier`, `CommandRouter`, `AndroidAppController`, `AccessibilityActionProvider`, `TextToSpeechManager`, `PermissionManager`, `AvatarBridge`, `ConversationRepository` — hepsi yukarıdaki dosyalardadır.
-
-### İstek akışı
-
-1. **KONUŞ** düğmesi (ya da erişilebilirlik hizmeti açıksa diğer uygulamaların üzerindeki küçük mikrofon düğmesi) → mikrofon izni kontrol edilir.
-2. Android `SpeechRecognizer` ile `tr-TR` konuşma tanıma (kısmi sonuçlar ekranda canlı görünür).
-3. `IntentClassifier` cihaz içinde komutu tanımaya çalışır. Tanırsa internet gerekmez.
-4. Tanıyamazsa ve Gemini ayarlıysa metin Gemini'ye gönderilir; model **yalnızca JSON şemasına uygun bir öneri** döndürür.
-5. `SafetyPolicy` öneriyi doğrular: izin listesinde olmayan eylem reddedilir, argümanlar kontrol edilir, sonuç doğuran işlemler onaya bağlanır. Model onay gereksinimini kaldıramaz, yalnızca ekleyebilir.
-6. Gerekirse kullanıcıdan onay istenir (ekranda **ONAYLA / İPTAL** ya da sesli "evet / hayır").
-7. `CommandRouter` eylemi gerçekleştirir. Yanıt metni, eylemin **gerçek sonucundan** üretilir (ör. uygulama bulunamadıysa "açtım" denmez).
-8. `TextToSpeechManager` yanıtı Türkçe seslendirir. Her aşama `AvatarBridge` ile avatara bildirilir.
+**Dudak senkronu:** Yanıt önce ses dosyasına sentezlenir, dosyanın gerçek ses genliği (20 ms'lik zarf) çıkarılır ve çalma konumuyla eş zamanlı olarak avatarın yüzüne/ağzına verilir. Bu, genliğe dayalı bir senkrondur; fonem (harf sesi) tabanlı dudak şekli değildir. Sentez başarısız olursa kelime zamanlamasına düşülür.
 
 ---
 
-## 2. APK'yı alma ve kurma
+## 2. Mimari (şartnamedeki modüller)
 
-### Hazır APK (GitHub Actions)
-Her push'ta `.github/workflows/android.yml` birim testlerini çalıştırır ve debug APK üretir:
-1. GitHub'da depo → **Actions** → son "Android build" çalışması.
-2. **Artifacts** bölümünden `FK-JARVIS-debug-apk` dosyasını indir, zip'ten `app-debug.apk`'yı çıkar.
-3. Telefona aktar, aç. "Bilinmeyen kaynaklardan yükleme" iznini istenirse ver.
+| Şartname modülü | Dosya |
+|---|---|
+| VoiceEngine | `voice/VoiceEngine.kt` (mikrofon oturumu), `voice/BargeInAndWake.kt` (araya girme + uyandırma döngüsü), `voice/VoiceSignal.kt` |
+| SpeechRecognizer | `voice/JarvisSpeechRecognizer.kt` (Android SpeechRecognizer, tr-TR, varsa cihaz içi) |
+| TextToSpeechEngine | `voice/TextToSpeechEngine.kt` (Türkçe TTS + dudak senkronu) |
+| GeminiAIService | `llm/GeminiAIService.kt` |
+| AIProviderManager | `llm/AIProviderManager.kt` — Gemini, OpenAI (`OpenAICompatibleService`), Claude (`ClaudeAIService`, resmi Anthropic Java SDK), yerel model |
+| AssistantCore | `core/AssistantCore.kt` (durum makinesi, sesli oturum, onaylar) |
+| CommandRouter | `core/CommandRouter.kt` (+ `IntentClassifier.kt`, `SafetyPolicy.kt`) |
+| AndroidAppController | `apps/AndroidAppController.kt` (+ `AppMatcher.kt`, `CalendarReader.kt`) |
+| AccessibilityController | `accessibility/AccessibilityController.kt` + `JarvisAccessibilityService.kt` |
+| PermissionManager | `permissions/PermissionManager.kt` |
+| AvatarBridge | `avatar/AvatarBridge.kt` |
+| ConversationManager | `data/ConversationManager.kt` |
+| Ön plan hizmeti | `service/AssistantSessionService.kt` |
 
-### Kendin derlemek
-Android Studio (Ladybug veya üstü) ya da Android SDK + JDK 17:
+**Akış:** KONUŞ / "JARVIS" → konuşma tanıma (tr-TR, konuşma bitince otomatik işler) → **cihaz içi sınıflandırıcı** (internetsiz) → anlaşılamazsa seçili **yapay zekâ sağlayıcısı** (yalnızca JSON komut önerisi döndürür) → **güvenlik politikası** (izin listesi, argüman doğrulama, onay) → gerekirse **onay** (ekranda ya da sesle "evet/hayır") → **Android eylemi** → sonucun gerçek durumu **sesli** okunur. Kesintisiz sohbet açıksa ardından yeniden dinlenir.
+
+---
+
+## 3. Kurulum
+
+### APK'yı indirme (GitHub Actions)
+1. GitHub → depo → **Actions** → en son "Android build" çalışması (yeşil ✓).
+2. **Artifacts** → `SRIUS-JARVIS-APK` → zip'i aç → `SRIUS_JARVIS_debug.apk`.
+3. Telefona at ve aç; "bilinmeyen kaynaklardan yükleme" iznini ver.
+
+Debug APK depodaki **test anahtarıyla** imzalanır; böylece yeni sürümler eskisinin üzerine kurulabilir. Play Store için üretim anahtarı kullan (§7).
+
+### Kendin derleme
+Android Studio (Meerkat+) ya da JDK 17 + Android SDK 36:
 ```bash
 ./gradlew testDebugUnitTest   # testler
 ./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease     # imzalı (keystore.properties varsa) ya da imzasız release
 ```
-`minSdk 26`, `targetSdk/compileSdk 35`. Android 15 ve 16 hedeflenmiştir.
+
+### İlk açılış
+1. Ayarlar (⚙) → **Yapay zekâ sağlayıcısı** seç → API anahtarını gir (§4).
+2. **KONUŞ** düğmesine bas → mikrofon iznini ver.
+3. İsteğe bağlı: **Uyandırma sözcüğü**, **Ekran kontrolü (erişilebilirlik)**.
 
 ---
 
-## 3. İzinler
+## 4. Yapay zekâ sağlayıcıları ve API anahtarları
 
-| İzin | Neden | Ne zaman |
-|---|---|---|
-| `RECORD_AUDIO` | Sesli komut | İlk kez KONUŞ'a basınca sorulur. Reddedilirse uygulama çökmez; ekrandaki **ANDROID AYARLARI** düğmesiyle *Ayarlar > Uygulamalar > FK JARVIS > İzinler > Mikrofon > "Uygulamayı kullanırken izin ver"* yolundan açılabilir. Bu sırada yazıyla komut verilebilir. |
-| `INTERNET` | Gemini API; bazı cihazlarda konuşma tanıma | — |
-| `SET_ALARM` | Saat uygulamasında alarm/zamanlayıcı hazırlama | Normal izin, sorulmaz |
-| Erişilebilirlik hizmeti | Ekran etkileşimi (Seviye B) | Yalnızca kullanıcı *Ayarlar > Erişilebilirlik > FK JARVIS ekran kontrolü*'nü kendisi açarsa |
+| Sağlayıcı | Anahtar | Varsayılan model | İnternet araştırması |
+|---|---|---|---|
+| Gemini | aistudio.google.com → Get API key | `gemini-2.5-flash` | Google Search grounding |
+| OpenAI | platform.openai.com → API keys | `gpt-5-mini` | Responses API `web_search` |
+| Claude | console.anthropic.com → API Keys | `claude-opus-5-5` (efor: düşük; sunucu tarafı yedek model açık) | `web_search` aracı |
+| Yerel model | gerekmez | (sen yazarsın, ör. `llama3.1`) | yok |
+| Yalnızca cihaz içi | — | — | — |
 
-`CALL_PHONE`, `SYSTEM_ALERT_WINDOW`, rehber/SMS izinleri **kullanılmaz**. Arama için yalnızca numaralı arama ekranı açılır; aramayı kullanıcı başlatır.
-
-Sürekli dinleme ve uyandırma sözcüğü bu sürümde **yoktur** (şartnamede opsiyonel). Bu nedenle mikrofon için foreground service gerekmez; mikrofon yalnızca düğmeye basınca ya da asistan bir soru sorduktan sonra kısa süre açılır ve üstteki **● MİKROFON AÇIK** göstergesi yanar.
-
----
-
-## 4. Gemini API anahtarı
-
-1. https://aistudio.google.com adresinde **Get API key** ile anahtar oluştur.
-2. Uygulamada sağ üstteki ⚙ → **GEMINI API ANAHTARI** alanına yapıştır → **KAYDET**.
-3. Model adı varsayılan olarak `gemini-2.5-flash`'tır; aynı ekrandan değiştirilebilir (AI Studio'da hesabının erişebildiği bir model adı yaz).
-
-Güvenlik:
-- Anahtar APK'ya veya kaynak koda **gömülmez**. Cihazda Android Keystore'daki AES-GCM anahtarıyla şifrelenip saklanır.
-- İstekte yalnızca `x-goog-api-key` başlığında gönderilir; URL'ye ve loglara yazılmaz.
-- Daha yüksek güvenlik için anahtarı kendi sunucunda tutan bir proxy kullanmak istersen `GeminiProvider(baseUrl = ...)` parametresi buna hazırdır.
-- Anahtar yoksa ya da yanlışsa uygulama çökmez; anlaşılır bir mesaj verir ve yerel komutlar çalışmaya devam eder.
-- Hata yönetimi: bağlantı 10 sn, okuma 30 sn zaman aşımı; 429 (kota), 5xx, zaman aşımı ve bağlantı hatalarında 2 kez artan beklemeyle yeniden deneme; 401/403 yeniden denenmez.
-
-**Gizlilik:** Gemini'ye yalnızca söylediğin cümlenin metni, son 6 konuşma satırı ve saat/dil bilgisi gönderilir. Ses kaydı, uygulama listesi, ekran içeriği gönderilmez. "YALNIZCA CİHAZ İÇİ" modunda hiçbir şey buluta gitmez.
+- Model adları Ayarlar'dan değiştirilebilir (hesabının erişebildiği bir ad yaz).
+- **Anahtarlar APK'ya/kaynak koda gömülmez.** Cihazda Android Keystore (AES-GCM) ile şifreli saklanır, loglanmaz, URL'ye yazılmaz.
+- **Sunucu proxy'si (önerilir):** "Özel sunucu / proxy" alanına kendi https proxy adresini yaz, anahtarı boş bırak; anahtarı proxy ekler. (Gemini: `/v1beta/models/...`, OpenAI: `/chat/completions` ve `/responses`, Claude: `/v1/messages` yollarını hedef API'ye iletmelidir.)
+- **Yerel model:** Ollama / LM Studio gibi OpenAI uyumlu sunucu adresi, ör. `http://192.168.1.20:11434/v1`. `http` yalnızca yerel ağ/loopback adreslerinde kabul edilir; diğer her adres `https` olmalı.
+- Hata yönetimi: zaman aşımı, bağlantı hatası, kota (429) ve sunucu hatalarında sınırlı yeniden deneme; anahtar yoksa/yanlışsa uygulama çökmez, anlaşılır mesaj verir; internet yoksa yerel komutlar çalışmaya devam eder.
+- **Gönderilen veri:** yalnızca söylediğin cümlenin metni, son 6 konuşma satırı ve saat. Ses kaydı, takvim, ekran içeriği, uygulama listesi gönderilmez.
+- Yeni sağlayıcı eklemek: `LLMProvider` arayüzünü uygula, `AIProviderManager` listesine ekle.
 
 ---
 
-## 5. Desteklenen komutlar (örnekler)
+## 5. Sesli etkileşim
 
-**Cihaz içinde (internet gerekmez):**
-- "JARVIS, beni duyuyor musun?"
-- "YouTube'u aç", "WhatsApp'ı aç", "Google Haritalar'ı aç", "CapCut'ı aç", "Lightroom'u aç", "Photoshop'u aç"
-- "Kamerayı aç", "Ana ekrana dön"
-- "Sesini kıs / yükselt" (medya sesi)
-- "Saat kaç", "Bugün günlerden ne"
-- "5 dakikalık zamanlayıcı kur", "Saat 7 buçukta alarm kur"
-- "Son söylediğimi tekrar et", "Tekrarla"
-- "Wi-Fi ayarlarını aç", "Bluetooth ayarlarını aç"
-- "Kotlin diye ara", "Taksim için yol tarifi", "0555 123 45 67 numarasını ara" (arama ekranını açar)
-- Erişilebilirlik açıkken: "Geri git", "Aşağı kaydır", "Bildirimleri aç", "Ayarlar'a dokun", "Şunu yaz merhaba" (onaylı)
+- **Türkçe tanıma ve Türkçe sesli yanıt** (Android TextToSpeech; hız ve ton ayarlanabilir).
+- **Konuşma bitince otomatik işleme;** sessizlik süresi ayarlanabilir (0,5–5 sn).
+- **Kesintisiz sohbet:** yanıttan sonra otomatik yeniden dinler. "Görüşürüz", "dur", **BİTİR** düğmesi ya da iki kez üst üste sessizlik oturumu bitirir. Yazılı komutlar oturumu başlatmaz.
+- **Araya girme (barge-in, varsayılan kapalı):** asistan konuşurken konuşmaya başlarsan yanıt kesilir ve seni dinler. Mikrofon yankı giderici ile açılır; hoparlör sesi yüksekse yanlış tetiklenebilir, kulaklıkla en iyisi.
+- **Yanıtı durdurma:** DUR düğmesi ya da "dur / sus".
+- **"JARVIS" uyandırma sözcüğü (varsayılan kapalı):** açınca bildirimli ön plan hizmeti başlar. Sistem konuşma tanıyıcısını döngüyle kullanır (ayrı bir anahtar sözcük modeli değildir) → **pil tüketir**, bazı cihazlarda her turda kısa bir ses çıkabilir. Android 13+ cihaz içi tanıma varsa internetsiz çalışır. Ekran kapalıyken varsayılan olarak durur. "JARVIS, YouTube'u aç" gibi tek cümlede komut verebilirsin.
+- **Yazılı komut** her zaman alttaki metin kutusundan verilebilir.
 
-**Gemini ile:** "Bugün ne yapmam gerekiyor?", "Bana kısa bir özet ver", serbest sohbet ve sorular, "Ahmet'e WhatsApp'tan geliyorum yaz" (metin hazırlanır, **onay** sorulur, göndermeyi kullanıcı yapar).
-
-> Not: Asistanın takvim, mesaj veya dosyalarına erişimi yoktur; "Bugün ne yapmam gerekiyor?" sorusuna bunu dürüstçe söyler.
-
-### Uygulama açma kuralları
-- Paket adı **tahmin edilmez**. Cihazdaki başlatıcı uygulamaları listelenir, söylenen adla eşleştirilir (Türkçe ekler ve "haritalar → Maps" gibi takma adlar dahil).
-- Uygulama yoksa: *"…adlı bir uygulamayı bu cihazda bulamadım"* denir.
-- Birden fazla eşleşme varsa liste gösterilir ve hangisinin açılacağı sorulur ("ikinci" diyerek ya da dokunarak seçilir).
-- Model bir paket adı önerse bile yalnızca cihazda gerçekten kuruluysa kullanılır.
+### Ön plan hizmeti ve Android 16 kuralları
+- Tür: `microphone` (`FOREGROUND_SERVICE_MICROPHONE`). Yalnızca uygulama öndeyken başlatılır (Android 14+ kuralı); arka planda gizlice başlatılmaz.
+- Çalıştığı durumlar: uyandırma sözcüğü açıkken, ya da sesli sohbet sırasında (ör. "YouTube'u aç" dedikten sonra uygulama arkaya geçse de sohbet sürsün diye). Oturum bitince kendini kapatır.
+- Bildirimde **Dinle** ve **Durdur** düğmeleri vardır. Telefon yeniden başlatılınca hizmet kendiliğinden açılmaz (mikrofon kuralı); uygulamayı bir kez açman yeterli.
+- Uygulama yeniden açıldığında konuşma geçmişi ve oturum durumu korunur.
 
 ---
 
-## 6. Güvenlik kuralları (özet)
+## 6. Telefon kontrolü ve komutlar
 
-- İzin listesi dışındaki her eylem reddedilir (`unknown`).
-- Mesaj hazırlama, paylaşım, ekrana yazı yazma ve "gönder/öde/sil/satın al/paylaş/onayla/şifre…" içeren dokunuşlar **her zaman** onay ister; onay eylem + hedef + içerik ile birlikte sorulur.
+**Cihaz içinde anlaşılan örnekler (internet gerekmez):**
+
+| Söyle | Ne olur |
+|---|---|
+| "JARVIS, YouTube'u aç" / "WhatsApp'ı aç" / "Chrome'u aç" / "CapCut'ı başlat" / "Lightroom'u aç" / "Photoshop'u aç" / "Google Haritalar'ı aç" | Cihazdaki uygulama listesinde bulunur ve açılır. Yoksa "bulamadım" der; birden fazla eşleşmede sorar. |
+| "YouTube'da lofi müzik ara" | YouTube uygulamasında arama (yoksa tarayıcıda) |
+| "Kamerayı aç", "Galeriyi aç" | Kamera / galeri |
+| "YouTube'u kapat" | Android başka uygulamaları kapatmaya izin vermez: uygulama öndeyse (erişilebilirlikle doğrulanır) ana ekrana dönerek arka plana alır ve bunu açıkça söyler. |
+| "Sesini yükselt / kıs" | Medya sesi |
+| "Wi-Fi / Bluetooth / bildirim ayarlarını aç" | İlgili ayar ekranı |
+| "Saat kaç", "Bugün günlerden ne" | Yerel yanıt |
+| "Bugün neler yapmam gerekiyor?" | Takvimden bugünün etkinliklerini **okur** (ilk seferde takvim izni sorulur; veri cihazdan çıkmaz) |
+| "5 dakikalık zamanlayıcı kur", "Saat 7 buçukta alarm kur" | Saat uygulamasında hazırlar |
+| "Bu metni kopyala" | Son yanıtı/taslağı panoya kopyalar |
+| "Paylaşım ekranını aç" / "Bunu paylaş" | Son metni paylaşım ekranında açar — **onay ister**, göndermeyi sen yaparsın |
+| "Ekran görüntüsü al" | Erişilebilirlik açıksa alır; değilse tuş kombinasyonunu söyler |
+| "Geri git", "Aşağı kaydır", "Bildirimleri aç", "Ayarlar'a dokun", "Şunu yaz merhaba", "Seçili metni kopyala" | Erişilebilirlik hizmetiyle (yazma her zaman onaylı) |
+| "Kotlin diye ara", "Taksim için yol tarifi", "0555… numarasını ara" | Web araması / harita / numaralı arama ekranı |
+| "Görüşürüz", "Dur" | Sohbeti bitirir / susar |
+
+**Yapay zekâ ile:** "Bana günlük haberleri oku" ve "internette ... araştır" (web araması yapan sağlayıcı gerekir), "Bana bir Instagram paylaşım metni hazırla" (metin ekranda gösterilir, panoya kopyalanır; paylaşma ayrıca onaylı), serbest sohbet ve sorular.
+
+### Erişilebilirlik (Seviye B)
+Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü açarsan çalışır; uygulama bunu gizlice açamaz. Ekran içeriği yalnızca istenen tek işlem anında okunur, saklanmaz, gönderilmez. Açıkken diğer uygulamaların üzerinde küçük bir mikrofon düğmesi görünür. Bazı uygulamalar (bankacılık vb.) bu kontrolü engelleyebilir. Google Play'de yayınlamak için erişilebilirlik API'si kullanım beyanı gerekir.
+
+---
+
+## 7. Güvenlik
+
+- Mesaj gönderme/hazırlama, sosyal medya paylaşımı, ekrana yazı yazma ve "gönder / öde / satın al / sil / paylaş / onayla / şifre…" içeren dokunuşlar **her zaman onay** ister; onay eylem + hedef + içerikle birlikte sorulur.
+- Yapay zekâ yalnızca izin listesindeki komutları önerebilir; listede olmayan reddedilir. Model onay gerekliliğini kaldıramaz, yalnızca ekleyebilir.
 - Yalnızca `http/https` bağlantılar açılır (`javascript:`, `intent:`, `file:` reddedilir).
-- Parola alanlarına yazılmaz, parola alanına dokunulmaz. CAPTCHA/biyometri aşılmaya çalışılmaz.
-- Model metnindeki talimatlar bu kuralları değiştiremez; model yalnızca onay gereksinimini artırabilir.
-- Bir eylemin başarılı olduğu yalnızca Android eylemi kabul ettiğinde söylenir.
-- Bankacılık gibi bazı uygulamalar erişilebilirlik kontrolünü engelleyebilir; her ekranın kontrol edilebileceği varsayılmaz.
-- Google Play'de yayınlamak istersen erişilebilirlik API'si kullanımı için Play politikası beyanı gerekir.
+- Parolalar kaydedilmez/gönderilmez; parola alanlarına yazılmaz, kopyalanmaz. CAPTCHA/biyometri aşılmaya çalışılmaz.
+- Gerçekleşmeyen işlem yapılmış gibi söylenmez: yanıt, Android eyleminin gerçek sonucundan üretilir.
+- Kullanıcıdan habersiz işlem yapılmaz; mikrofon açıkken üstte kırmızı gösterge, arka planda bildirim görünür.
+
+### İmzalama
+- **Debug:** depodaki `signing/sirius-test.jks` (gizli değildir; yalnızca test içindir).
+- **Release (üretim):** `scripts/create_release_keystore.sh` ile anahtar oluştur, `keystore.properties.example`'ı `keystore.properties` olarak kopyalayıp doldur (git'e eklenmez), `./gradlew assembleRelease`. CI'da `SRIUS_KEYSTORE_BASE64`, `SRIUS_STORE_PASSWORD`, `SRIUS_KEY_ALIAS`, `SRIUS_KEY_PASSWORD` sırları tanımlıysa imzalı release APK üretilir; değilse imzasız release APK.
 
 ---
 
-## 7. Avatar entegrasyonu
+## 8. İzinler
 
-`AvatarBridge`, WebView'daki avatarın gerçek API'sini çağırır:
+| İzin | Neden |
+|---|---|
+| `RECORD_AUDIO` | Sesli komut (ilk KONUŞ'ta sorulur). Reddedilirse ekrandaki **ANDROID AYARLARI** ile *Ayarlar > Uygulamalar > SRİUS JARVIS > İzinler > Mikrofon* yolundan açılır. |
+| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE` | Sesli oturum / uyandırma sözcüğü hizmeti |
+| `POST_NOTIFICATIONS` | Hizmet bildirimi (Android 13+) |
+| `READ_CALENDAR` | Yalnızca "bugün ne yapmam gerekiyor" sorulduğunda; salt okuma |
+| `INTERNET` | Yapay zekâ sağlayıcıları; bazı cihazlarda konuşma tanıma |
+| `SET_ALARM` | Saat uygulamasında alarm/zamanlayıcı hazırlama |
 
-```js
-avatar.setState('idle'|'listening'|'thinking'|'talking'|'executing'|'confirming'|'error'|'micoff')
-avatar.setLevel(0..1)   avatar.replay()   avatar.setSpeed(x)   avatar.setSound(bool)
-```
-
-Eşleme: IDLE→idle, LISTENING→listening, PROCESSING→thinking, SPEAKING→talking, EXECUTING→executing, CONFIRMING→confirming, ERROR→error (mikrofon izni yoksa bekleme durumunda micoff).
-
-**Dudak senkronizasyonu yoktur.** Dinlerken seviye mikrofonun gerçek RMS değerinden gelir. Konuşurken Android TTS ses genliği vermediği için seviye, TTS'in kelime zamanlamasından (`onRangeStart`) türetilir; avatar ayrıca kendi konuşma ritmini canlandırır.
+`CALL_PHONE`, SMS, rehber, depolama, "diğer uygulamaların üzerinde göster" izinleri kullanılmaz.
 
 ---
 
-## 8. Testler ve doğrulama durumu
+## 9. Test ve doğrulama durumu
 
 | Kapsam | Durum |
 |---|---|
-| Birim testleri: Türkçe sınıflandırıcı, güvenlik politikası, uygulama eşleştirici | JVM'de çalıştırıldı |
-| Gemini sağlayıcı (MockWebServer): şema ayrıştırma, 429 yeniden deneme, 403, bozuk JSON, güvenlik engeli, anahtarsız çalışma, ağ hatası | JVM'de çalıştırıldı |
-| Orkestratör entegrasyon testleri (sahte giriş/çıkış ile): sesli komut → eylem, onaysız hassas eylem yapılmaması, LLM önerisinin doğrulanması, LLM hatasında çökmeme, sağlayıcı yokken yerel yanıt, mikrofon izni reddi, belirsiz uygulama seçimi | JVM'de çalıştırıldı |
-| Avatar animasyonları (her iki arayüz, tüm durumlar) | Masaüstü Chromium'da ekran görüntüsüyle kontrol edildi |
-| APK derlemesi | GitHub Actions'ta (bu geliştirme ortamında Android SDK yoktu) |
+| 71 birim + entegrasyon testi (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
+| Android derlemesi, debug APK, `targetSdkVersion 36` ve imza doğrulaması | GitHub Actions'ta |
+| Avatar animasyonları (iki arayüz, tüm durumlar) | Masaüstü Chromium'da ekran görüntüsüyle kontrol edildi |
 
-**Gerçek cihazda TEST EDİLMEDİ** (geliştirme ortamında Android cihaz/emülatör yoktu). Şartname §12'deki şu maddeler cihazda doğrulanmalıdır:
-
-1. Türkçe sesli komut algılanıyor mu? — *test edilmedi*
-2. Türkçe sesli yanıt (TTS Türkçe ses verisi yüklü mü?) — *test edilmedi*
-3. YouTube / WhatsApp açılıyor mu? — *test edilmedi* (eşleştirme mantığı birim testli)
-4. Yüklü olmayan uygulamada doğru hata — *test edilmedi* (mantık birim testli)
-5. İnternet yokken yerel komutlar — *test edilmedi* (not: bazı cihazlarda Google konuşma tanıma da internet ister; o durumda yazıyla komut çalışır)
-6. Gemini hatasında çökmeme — *test edilmedi* (mantık testli)
-7. Mikrofon izni reddi — *test edilmedi* (mantık testli)
-8. Onaysız hassas eylem olmaması — *test edilmedi* (mantık testli)
-9. Avatar senkronu — *test edilmedi*
-10. Android 15/16 izin ve servis davranışı — *test edilmedi*
-
-Özellikle cihazda denenmesi gereken riskli noktalar:
-- **Erişilebilirlik üzerindeki mikrofon düğmesi:** başka bir uygulama öndeyken Android'in mikrofon erişimine izin verip vermediği cihaza/sürüme göre değişebilir. İzin vermezse ekranda hata görünür; o durumda komutu uygulama içinden verip hedef uygulamaya geçmek gerekir.
-- **TTS Türkçe ses verisi:** yüklü değilse yanıtlar ekranda yazılı görünür ama seslendirilmez. *Ayarlar > Sistem > Diller > Metin okuma çıkışı*'ndan Türkçe ses verisi indirilebilir.
-- WebView'ın Canvas performansı düşük donanımlı cihazlarda (özellikle NEON arayüzünde) düşük kare hızı verebilir; HIZ ve ARAYÜZ düğmeleriyle hafifletilebilir.
+**Gerçek cihazda TEST EDİLMEDİ** — aşağıdakilerin hepsi Android 16 telefonda doğrulanmalı:
+Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz sohbet ve araya girme (yankı ile yanlış tetikleme) · uyandırma sözcüğü (pil, tanıyıcı sesleri, cihaz içi Türkçe model) · ön plan hizmeti ve bildirim · uygulama açma/YouTube araması/galeri · erişilebilirlik işlemleri ve ekran görüntüsü · takvim okuma · üç bulut sağlayıcısının gerçek API'lerle çalışması (OpenAI Responses API web araması özellikle) · erişilebilirlik üstündeki mikrofon düğmesinin arka planda mikrofon alabilmesi.
 
 ---
 
-## 9. Bilinen sınırlar / sonraki adımlar
+## 10. Bilinen sınırlar
 
-- Uyandırma sözcüğü (ör. "Hey JARVIS") yok — eklenirse foreground service (`microphone` tipi) ve bildirim gerekir.
-- Takvim/görev entegrasyonu yok.
-- LLM sağlayıcısı olarak şu an yalnızca Gemini var; `LLMProvider` arayüzüne yeni sağlayıcı eklenebilir.
-- Release imzalama yapılandırması yok (yalnızca debug APK).
+- Android, bir uygulamanın başka uygulamaları **kapatmasına** izin vermez; yalnızca arka plana alınabilir.
+- Uyandırma sözcüğü özel bir anahtar sözcük motoru değildir (pil ve gizlilik açısından bunu bil; varsayılan kapalı).
+- Dudak senkronu genliğe dayalıdır, fonem tabanlı değildir.
+- Konuşma tanıma cihazın tanıma hizmetine bağlıdır (çoğunlukla Google); bazı cihazlarda internet ister.
+- Takvime yazma, mesajı otomatik gönderme, sosyal medyada otomatik yayın bilinçli olarak yoktur (onaylı paylaşım ekranı var).

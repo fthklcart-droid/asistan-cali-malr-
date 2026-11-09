@@ -1,8 +1,9 @@
 package com.fk.jarvis
 
 import com.fk.jarvis.apps.AppInfo
-import com.fk.jarvis.core.AssistantOrchestrator
+import com.fk.jarvis.core.AssistantCore
 import com.fk.jarvis.core.AssistantState
+import com.fk.jarvis.core.BargeInMonitor
 import com.fk.jarvis.core.CommandExecutor
 import com.fk.jarvis.core.CommandIntent
 import com.fk.jarvis.core.CommandProposal
@@ -30,7 +31,7 @@ import org.junit.Test
 
 /** Orkestratörün uçtan uca akışı (Android bağımlılıkları sahte nesnelerle). */
 @OptIn(ExperimentalCoroutinesApi::class)
-class AssistantOrchestratorTest {
+class AssistantCoreTest {
 
     private class FakeInput(var result: MicStartResult = MicStartResult.Started) : SpeechInput {
         var listener: SttListener? = null
@@ -57,8 +58,22 @@ class AssistantOrchestratorTest {
         override fun execute(p: CommandProposal, chosenApp: AppInfo?): RouteResult { executed += p; chosen += chosenApp; return result(p) }
     }
     private class FakeLlm(val answer: () -> CommandProposal) : LLMProvider {
-        override val id = "fake"; override val isConfigured = true
+        override val id = "fake"; override val displayName = "fake"; override val isConfigured = true
         override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>) = answer()
+    }
+
+    private class FakeBargeIn : BargeInMonitor {
+        var onSpeech: (() -> Unit)? = null
+        override fun start(onSpeech: () -> Unit): Boolean { this.onSpeech = onSpeech; return true }
+        override fun stop() { onSpeech = null }
+    }
+
+    /** Konuşmayı hemen bitirmeyen çıktı (barge-in testi için). */
+    private class HoldingOutput : SpeechOutput {
+        var pending: (() -> Unit)? = null
+        val spoken = mutableListOf<String>()
+        override fun speak(text: String, onDone: () -> Unit) { spoken += text; pending = onDone }
+        override fun stop() { val p = pending; pending = null; p?.invoke() }
     }
 
     private fun build(
@@ -66,11 +81,107 @@ class AssistantOrchestratorTest {
         exec: FakeExecutor = FakeExecutor { RouteResult.Done(true, "Tamam.") },
         llm: LLMProvider = NoLLMProvider,
         input: FakeInput = FakeInput(),
-        out: FakeOutput = FakeOutput(),
-    ) = AssistantOrchestrator(
+        out: SpeechOutput = FakeOutput(),
+        conversation: Boolean = false,
+        bargeIn: BargeInMonitor? = null,
+    ) = AssistantCore(
         scope = scope, input = input, output = out, history = FakeHistory(), executor = exec,
-        llm = { llm }, listenAfterQuestion = { false },
+        llm = { llm }, listenAfterQuestion = { false }, conversationMode = { conversation },
+        bargeInEnabled = { bargeIn != null }, bargeIn = bargeIn ?: com.fk.jarvis.core.NoBargeIn,
     )
+
+    @Test fun conversationModeRelistensAfterAnswer() = runTest(StandardTestDispatcher()) {
+        val input = FakeInput()
+        val o = build(this, input = input, conversation = true)
+        o.startVoiceSession()
+        assertTrue(o.conversationActive.value)
+        input.listener!!.onFinal("saat kaç")
+        assertEquals("yanıttan sonra yeniden dinlemeli", 2, input.starts)
+        assertEquals(AssistantState.LISTENING, o.ui.value.state)
+        input.listener!!.onFinal("görüşürüz")
+        assertTrue(!o.conversationActive.value)
+        assertEquals(2, input.starts)
+        assertEquals(AssistantState.IDLE, o.ui.value.state)
+    }
+
+    @Test fun twoSilentTurnsEndSession() = runTest(StandardTestDispatcher()) {
+        val input = FakeInput()
+        val o = build(this, input = input, conversation = true)
+        o.startVoiceSession()
+        input.listener!!.onError(com.fk.jarvis.voice.SttError.NO_SPEECH)
+        assertEquals(2, input.starts)
+        input.listener!!.onError(com.fk.jarvis.voice.SttError.NO_SPEECH)
+        assertEquals(2, input.starts)
+        assertTrue(!o.conversationActive.value)
+    }
+
+    @Test fun typedCommandsDoNotStartVoiceLoop() = runTest(StandardTestDispatcher()) {
+        val input = FakeInput()
+        val o = build(this, input = input, conversation = true)
+        o.submitText("saat kaç")
+        assertEquals(0, input.starts)
+    }
+
+    @Test fun bargeInInterruptsSpeechAndListens() = runTest(StandardTestDispatcher()) {
+        val input = FakeInput(); val out = HoldingOutput(); val barge = FakeBargeIn()
+        val o = build(this, input = input, out = out, bargeIn = barge)
+        o.submitText("saat kaç")
+        assertEquals(AssistantState.SPEAKING, o.ui.value.state)
+        barge.onSpeech!!.invoke()
+        assertEquals(AssistantState.LISTENING, o.ui.value.state)
+        assertEquals(1, input.starts)
+    }
+
+    @Test fun wakeWordWithCommandRunsIt() = runTest(StandardTestDispatcher()) {
+        val exec = FakeExecutor { RouteResult.Done(true, "YouTube açıldı.") }
+        val o = build(this, exec)
+        o.onWakeWord("youtube'u aç")
+        assertEquals(CommandIntent.OPEN_APP, exec.executed.single().intent)
+    }
+
+    @Test fun researchUsesProvider() = runTest(StandardTestDispatcher()) {
+        val out = FakeOutput()
+        val llm = object : LLMProvider {
+            override val id = "x"; override val displayName = "x"; override val isConfigured = true
+            override val supportsResearch = true
+            override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>) = error("kullanılmamalı")
+            override suspend fun research(query: String, context: Map<String, String>) = "Haber özeti: $query"
+        }
+        val o = build(this, llm = llm, out = out)
+        o.submitText("günlük haberleri oku")
+        assertEquals(AssistantState.PROCESSING, o.ui.value.state)
+        advanceUntilIdle()
+        assertTrue(out.spoken.last().startsWith("Haber özeti"))
+    }
+
+    @Test fun agendaAsksPermissionThenRetries() = runTest(StandardTestDispatcher()) {
+        var granted = false
+        val exec = FakeExecutor { p ->
+            if (!granted) RouteResult.NeedsPermission("android.permission.READ_CALENDAR", "İzin gerekiyor", p)
+            else RouteResult.Done(true, "Bugün takviminde 1 etkinlik var.")
+        }
+        val out = FakeOutput()
+        val o = build(this, exec, out = out)
+        o.submitText("bugün ne yapmam gerekiyor")
+        assertEquals("android.permission.READ_CALENDAR", o.ui.value.permissionRequest)
+        granted = true
+        o.onPermissionResult(true)
+        assertNull(o.ui.value.permissionRequest)
+        assertEquals("Bugün takviminde 1 etkinlik var.", out.spoken.last())
+    }
+
+    @Test fun copyUsesLastAnswerAndDraftIsShown() = runTest(StandardTestDispatcher()) {
+        val exec = FakeExecutor { RouteResult.Done(true, "Panoya kopyaladım.") }
+        val llm = FakeLlm { CommandProposal(CommandIntent.DRAFT_TEXT, arguments = mapOf("text" to "Yeni koleksiyon yayında!"), spokenResponse = "Hazırladım.", source = CommandProposal.Source.LLM) }
+        val o = build(this, exec, llm)
+        o.submitText("bana bir instagram paylaşım metni hazırla")
+        advanceUntilIdle()
+        assertEquals("Yeni koleksiyon yayında!", o.ui.value.draft)
+        o.submitText("bu metni kopyala")
+        assertEquals("Yeni koleksiyon yayında!", exec.executed.last().arg("text"))
+        o.submitText("bunu paylaş")
+        assertEquals("paylaşım onay ister", AssistantState.CONFIRMING, o.ui.value.state)
+    }
 
     @Test fun voiceToLocalAction() = runTest(StandardTestDispatcher()) {
         val input = FakeInput(); val out = FakeOutput()
@@ -116,7 +227,7 @@ class AssistantOrchestratorTest {
 
     @Test fun llmErrorDoesNotCrash() = runTest(StandardTestDispatcher()) {
         val llm = object : LLMProvider {
-            override val id = "x"; override val isConfigured = true
+            override val id = "x"; override val displayName = "x"; override val isConfigured = true
             override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>): CommandProposal =
                 throw LlmException(LlmException.Kind.QUOTA, "429")
         }
@@ -132,7 +243,7 @@ class AssistantOrchestratorTest {
         val out = FakeOutput()
         val o = build(this, out = out)
         o.submitText("bana kısa bir özet ver")
-        assertTrue(out.spoken.last().contains("Gemini"))
+        assertTrue(out.spoken.last().contains("API anahtarı"))
         o.submitText("saat kaç")
         assertEquals(AssistantState.IDLE, o.ui.value.state)
     }
