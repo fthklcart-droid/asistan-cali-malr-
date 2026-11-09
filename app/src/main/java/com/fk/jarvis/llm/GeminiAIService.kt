@@ -64,7 +64,7 @@ class GeminiAIService(
             .put("systemInstruction", textParts(AssistantPrompt.researchInstruction(assistantName())))
             .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", contextLine(context) + query.take(500))))))
             .put("tools", JSONArray().put(JSONObject().put("google_search", JSONObject())))
-            .put("generationConfig", JSONObject().put("maxOutputTokens", 1024))
+            .put("generationConfig", JSONObject().put("maxOutputTokens", 4096).also { thinking(it) })
             .toString()
         val text = extractText(JSONObject(httpSupport.postJson(endpoint(), headers, body)))
         if (text.isBlank()) throw LlmException(LlmException.Kind.BAD_RESPONSE, "empty")
@@ -91,9 +91,16 @@ class GeminiAIService(
                 "generationConfig", JSONObject()
                     .put("responseMimeType", "application/json")
                     .put("responseSchema", JSONObject(AssistantPrompt.geminiSchemaJson()))
-                    .put("maxOutputTokens", 2048)
+                    .put("maxOutputTokens", 8192)
+                    .also { thinking(it) }
             )
             .toString()
+    }
+
+    /** Gemini 3 ailesinde düşünme düzeyi "low": sesli asistan için hızlı yanıt. Eski modellere gönderilmez. */
+    private fun thinking(cfg: JSONObject) {
+        val m = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
+        if (m.startsWith("gemini-3")) cfg.put("thinkingConfig", JSONObject().put("thinkingLevel", "low"))
     }
 
     private fun textParts(t: String) = JSONObject().put("parts", JSONArray().put(JSONObject().put("text", t)))
@@ -130,7 +137,7 @@ class GeminiAIService(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com"
-        const val DEFAULT_MODEL = "gemini-2.5-flash"
+        const val DEFAULT_MODEL = "gemini-3.8-flash"
         const val MAX_HISTORY = 6
     }
 }

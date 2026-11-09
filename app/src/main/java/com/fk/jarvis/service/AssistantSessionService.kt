@@ -92,6 +92,7 @@ class AssistantSessionService : Service() {
         when (intent?.action) {
             ACTION_LISTEN -> { wake?.stop(); app.core.startVoiceSession() }
             ACTION_STOP -> {
+                app.live.stop()
                 app.core.endSession()
                 app.settings.update { it.copy(wakeWord = false) }
                 stopSelf()

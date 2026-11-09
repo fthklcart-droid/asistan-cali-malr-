@@ -19,7 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/** AYARLAR: arayüz, ses, uyandırma sözcüğü, gizlilik. (Sunucu ayarları SUNUCU sekmesinde.) */
+/** AYARLAR: asistan, ses, uyandırma sözcüğü, gizlilik. (Arayüz ARAYÜZ, sunucu SUNUCU bölmesinde.) */
 @Composable
 fun SettingsScreen(s: HoloState, a: HoloActions) {
     val st = s.settings
@@ -29,26 +29,7 @@ fun SettingsScreen(s: HoloState, a: HoloActions) {
         Modifier.fillMaxSize().statusBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ScreenTitle("AYARLAR", "Arayüz, ses ve gizlilik")
-
-        HoloPanel(title = "ARAYÜZ") {
-            FieldLabel("AVATAR")
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HoloChip("ART · HOLOGRAFİK MAVİ", active = st.avatarStyle != "neon") { a.updateSettings { it.copy(avatarStyle = "art") } }
-                HoloChip("NEON · MOR", active = st.avatarStyle == "neon") { a.updateSettings { it.copy(avatarStyle = "neon") } }
-            }
-            Spacer(Modifier.height(10.dp))
-            FieldLabel("ANİMASYON HIZI")
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0.5f to "0.5x", 1f to "1x", 2f to "2x").forEach { (v, l) ->
-                    HoloChip(l, active = st.avatarSpeed == v) { a.updateSettings { it.copy(avatarSpeed = v) } }
-                }
-            }
-            HoloSwitchRow("Avatar ambiyans sesi", checked = st.avatarSound) { b -> a.updateSettings { it.copy(avatarSound = b) } }
-            HoloButton("AÇILIŞ ANİMASYONUNU OYNAT", accent = JarvisColors.dim) { a.replayAvatar() }
-        }
+        ScreenTitle("AYARLAR", "Asistan, ses, uyandırma sözcüğü ve gizlilik")
 
         HoloPanel(title = "ASİSTAN") {
             FieldLabel("ADI (UYANDIRMA SÖZCÜĞÜ DE BUDUR)")

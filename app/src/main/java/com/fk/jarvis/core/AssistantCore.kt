@@ -245,6 +245,11 @@ class AssistantCore(
         val p = pendingConfirm ?: return
         pendingConfirm = null
         _ui.update { it.copy(confirmQuestion = null) }
+        if (liveActive) {
+            val cb = liveFollowUp; liveFollowUp = null
+            cb?.invoke(if (accepted) runLive(p, null) else "REDDEDİLDİ: Kullanıcı işlemi iptal etti.")
+            return
+        }
         if (_ui.value.state == AssistantState.LISTENING) input.cancel()
         if (accepted) execute(p, null) else speak("Tamam, işlemi iptal ettim.")
     }
@@ -253,6 +258,12 @@ class AssistantCore(
         val p = pendingChoice ?: CommandProposal(CommandIntent.OPEN_APP, arguments = mapOf("app_name" to app.label))
         pendingChoice = null
         _ui.update { it.copy(appChoices = emptyList(), confirmQuestion = null) }
+        if (liveActive) {
+            val cb = liveFollowUp; liveFollowUp = null
+            val r = runLive(p, app)
+            cb?.invoke(r)
+            return
+        }
         if (_ui.value.state == AssistantState.LISTENING) input.cancel()
         execute(p, app)
     }
@@ -268,6 +279,11 @@ class AssistantCore(
         val p = pendingPermission ?: return
         pendingPermission = null
         _ui.update { it.copy(permissionRequest = null) }
+        if (liveActive) {
+            val cb = liveFollowUp; liveFollowUp = null
+            cb?.invoke(if (granted) runLive(p, null) else "BAŞARISIZ: Kullanıcı izin vermedi.")
+            return
+        }
         if (granted) execute(p, null) else speak("İzin verilmediği için bu işlemi yapamadım.")
     }
 
@@ -431,6 +447,128 @@ class AssistantCore(
 
     fun onTtsLevel(v: Float) {
         if (_ui.value.state == AssistantState.SPEAKING) _level.value = v
+    }
+
+
+    // ------------------------------------------------------------------ Gemini Live (gerçek zamanlı ses)
+    //
+    // Live modunda konuşma ve seslendirme doğrudan Gemini Live tarafından yapılır; çekirdek arayüz durumunu,
+    // metin dökümünü ve geçmişi yönetir. Telefon işlemleri modelin "phone_action" aracıyla gelir ve sesli modla
+    // AYNI güvenlik politikasından geçer; onay gereken işlemler yalnızca ekrandaki ONAYLA düğmesiyle yapılır.
+
+    private var liveActive = false
+    private var liveFollowUp: ((String) -> Unit)? = null
+    private val liveUser = StringBuilder()
+    private val liveBot = StringBuilder()
+    private var liveTurnFresh = true
+
+    val isLive: Boolean get() = liveActive
+
+    fun liveStarted() {
+        liveActive = true
+        _conversationActive.value = true
+        speechSeq++
+        bargeIn.stop()
+        output.stop()
+        input.cancel()
+        liveUser.clear(); liveBot.clear(); liveTurnFresh = true
+        _ui.update { it.copy(state = AssistantState.PROCESSING, error = null, partialTranscript = "", response = "Gemini Live'a bağlanıyor…", lastAnswerFromCloud = true) }
+    }
+
+    fun liveEnded(error: String?) {
+        if (!liveActive && error == null) return
+        liveActive = false
+        liveFollowUp = null
+        _conversationActive.value = false
+        _level.value = 0f
+        if (liveUser.isNotBlank() || liveBot.isNotBlank()) liveTurnComplete()
+        if (error != null) _ui.update { it.copy(state = AssistantState.ERROR, error = error, response = error) }
+        else _ui.update { it.copy(state = AssistantState.IDLE, partialTranscript = "") }
+    }
+
+    fun liveState(s: AssistantState) {
+        if (!liveActive) return
+        val cur = _ui.value.state
+        // Onay/seçim beklerken durum ekrandan değişmesin.
+        if (cur == AssistantState.CONFIRMING && (pendingConfirm != null || pendingChoice != null || pendingPermission != null)) return
+        if (cur != s) setState(s)
+    }
+
+    fun liveLevel(v: Float) { if (liveActive) _level.value = v }
+
+    fun liveUserText(t: String) {
+        if (liveTurnFresh) { liveUser.clear(); liveBot.clear(); liveTurnFresh = false; _ui.update { it.copy(response = "") } }
+        liveUser.append(t)
+        _ui.update { it.copy(partialTranscript = liveUser.toString().trim()) }
+    }
+
+    fun liveUserTyped(t: String) {
+        if (liveTurnFresh) { liveUser.clear(); liveBot.clear(); liveTurnFresh = false }
+        liveUser.append(t)
+        _ui.update { it.copy(transcript = t, partialTranscript = "", response = "") }
+    }
+
+    fun liveAssistantText(t: String) {
+        if (liveTurnFresh) { liveUser.clear(); liveBot.clear(); liveTurnFresh = false }
+        liveBot.append(t)
+        _ui.update { it.copy(response = liveBot.toString().trim()) }
+    }
+
+    fun liveTurnComplete() {
+        val u = liveUser.toString().trim()
+        val b = liveBot.toString().trim()
+        if (u.isNotEmpty()) history.add(true, u)
+        if (b.isNotEmpty()) history.add(false, b)
+        _ui.update { it.copy(transcript = u.ifEmpty { it.transcript }, partialTranscript = "") }
+        liveUser.clear(); liveBot.clear(); liveTurnFresh = true
+    }
+
+    /**
+     * Modelin araç çağrısını güvenlik politikasından geçirip yürütür. Dönen metin modele araç sonucu olarak verilir.
+     * Onay/seçim/izin gerekirse sonuç [onFollowUp] ile daha sonra (kullanıcı ekranda karar verince) bildirilir.
+     */
+    fun liveExecute(p0: CommandProposal, onFollowUp: (String) -> Unit): String {
+        var p = p0
+        if ((p.intent == CommandIntent.SHARE_TEXT || p.intent == CommandIntent.COMPOSE_MESSAGE || p.intent == CommandIntent.COPY_TEXT) && p.arg("text") == null) {
+            val last = lastAssistantContent() ?: return "BAŞARISIZ: Kullanılacak bir metin yok; kullanıcıdan metni iste."
+            p = p.copy(arguments = p.arguments + ("text" to last))
+        }
+        return when (val d = SafetyPolicy.evaluate(p)) {
+            is SafetyDecision.Reject -> "REDDEDİLDİ: ${d.reason}"
+            is SafetyDecision.Confirm -> {
+                pendingConfirm = d.proposal
+                liveFollowUp = onFollowUp
+                _ui.update { it.copy(confirmQuestion = d.question, state = AssistantState.CONFIRMING) }
+                "ONAY BEKLENİYOR: ${d.question} Kullanıcı ekrandaki ONAYLA düğmesine basmalı; sonucu ayrıca bildireceğim."
+            }
+            is SafetyDecision.Allow -> runLive(d.proposal, null, onFollowUp)
+        }
+    }
+
+    private fun runLive(p: CommandProposal, chosen: AppInfo?, onFollowUp: ((String) -> Unit)? = null): String {
+        setState(AssistantState.EXECUTING)
+        val r = try { executor.execute(p, chosen) } catch (e: Exception) { RouteResult.Done(false, "İşlem sırasında bir hata oluştu.") }
+        val out = when (r) {
+            is RouteResult.Done -> {
+                if (r.success && p.intent == CommandIntent.DRAFT_TEXT) _ui.update { it.copy(draft = p.arg("text")) }
+                (if (r.success) "BAŞARILI: " else "BAŞARISIZ: ") + r.message
+            }
+            is RouteResult.NeedsAppChoice -> {
+                pendingChoice = r.proposal
+                liveFollowUp = onFollowUp
+                val names = r.candidates.mapIndexed { i, a -> "${i + 1}. ${a.label}" }.joinToString(", ")
+                _ui.update { it.copy(appChoices = r.candidates, confirmQuestion = "Hangisini açayım? $names", state = AssistantState.CONFIRMING) }
+                "BİRDEN FAZLA UYGULAMA: $names. Kullanıcı ekrandan seçecek; sonucu ayrıca bildireceğim."
+            }
+            is RouteResult.NeedsPermission -> {
+                pendingPermission = r.proposal
+                liveFollowUp = onFollowUp
+                _ui.update { it.copy(permissionRequest = r.permission, state = AssistantState.CONFIRMING) }
+                "İZİN GEREKİYOR: ${r.message} Kullanıcı ekrandan izin verecek; sonucu ayrıca bildireceğim."
+            }
+        }
+        if (_ui.value.state == AssistantState.EXECUTING) setState(AssistantState.LISTENING)
+        return out
     }
 
     fun dismissError() = _ui.update { it.copy(error = null, micDenied = false, state = if (it.state == AssistantState.ERROR) AssistantState.IDLE else it.state) }

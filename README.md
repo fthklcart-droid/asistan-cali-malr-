@@ -17,15 +17,27 @@ Kotlin + Jetpack Compose; avatar WebView içinde Canvas ile çizilir. Hedef: **A
 
 Alt çubuktaki **ARAYÜZ** düğmesi veya Ayarlar > Arayüz ile değişir. Arayüz renkleri seçili avatara uyar (ART'ta neon mavi). Avatar çizim kodu (`app/src/main/assets/avatar/`) bu sürümde değiştirilmedi; yalnızca ses sistemine bağlandı.
 
-**Holografik arayüz (5 bölme, alt menü):**
+**Holografik arayüz (7 bölme, alt menü; bölme geçişlerinde tarama çizgisi, panellerde belirme/titreme efektleri):**
 
 | Bölme | İçerik |
 |---|---|
 | **ASİSTAN** | Avatar, HUD başlığı (durum, mikrofon, yapay zekâ, oturum ışıkları), canlı metin dökümü, onay/seçim/taslak panelleri, ses seviyesi göstergesi, animasyonlu mikrofon küresi, yazılı komut |
 | **SOHBET** | Konuşma geçmişi (yalnızca metin, cihazda), silme |
-| **SUNUCU** | Sağlayıcı kartları (Gemini, OpenAI, Claude, yerel, cihaz içi), API anahtarı, model, proxy/yerel sunucu adresi, gerçek **bağlantı testi** (yanıt süresiyle) |
+| **UYGULAMA** | Cihazdaki uygulamalar: arama, hızlı erişim, tek dokunuşla açma |
+| **ARAYÜZ** | Avatar (ART/NEON), animasyon hızı, vurgu rengi (otomatik/mavi/mor/altın/yeşil), geçiş efektleri ve ızgara aç/kapat |
+| **SUNUCU** | Sağlayıcı kartları (Gemini, OpenAI, Claude, yerel, cihaz içi), API anahtarı, model, proxy/yerel sunucu adresi, gerçek **bağlantı testi** (yanıt süresiyle), **Gemini Live** (gerçek zamanlı konuşma) ayarları |
 | **SİSTEM** | Mikrofon, bildirim, takvim, ekran kontrolü izinleri; konuşma tanıma ve Türkçe seslendirme durumu; arka plan hizmeti; sürüm ve **imza SHA-256** (test/üretim anahtarı) |
-| **AYARLAR** | Avatar stili ve hızı, asistan adı, kesintisiz sohbet, araya girme, sessizlik süresi, konuşma hızı/tonu, uyandırma sözcüğü, gizlilik |
+| **AYARLAR** | Asistan adı, kesintisiz sohbet, araya girme, sessizlik süresi, konuşma hızı/tonu, uyandırma sözcüğü, gizlilik |
+
+### Gemini Live — gerçek zamanlı konuşma
+SUNUCU → Gemini → **Gemini Live** → "Gerçek zamanlı konuşma"yı aç. Artık **KONUŞ** (CANLI) düğmesi bir canlı oturum açar:
+- Mikrofon sesi WebSocket ile doğrudan Gemini Live'a akar (16 kHz PCM); Gemini kendi sesiyle anında yanıt verir (24 kHz PCM).
+- Avatarın ağzı/ışığı modelin **gerçek ses genliğiyle** hareket eder; konuşma metni ekranda canlı yazılır.
+- Söz kesme: Live API konuşmanı algılayınca yanıtı keser. "Araya girme" kapalıysa model konuşurken mikrofon gönderilmez (hoparlör yankısı kendini kesmesin diye).
+- Telefon işlemleri modelin `phone_action` aracıyla gelir ve **aynı güvenlik politikasından** geçer; onay gerekenler yalnızca ekrandaki ONAYLA ile yapılır. Güncel bilgi için Google Search aracı açıktır.
+- Varsayılan Live modeli: `gemini-3.1-flash-live-preview` (önizleme). Sesler: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr. Model adı değişirse SUNUCU'dan güncellenebilir.
+- Normal (Live olmayan) modda Gemini metin modeli varsayılanı: `gemini-3.8-flash` (düşünme düzeyi: düşük).
+- Gizlilik: canlı modda ses, oturum açıkken Google'a gider; oturum BİTİR ile kapanır.
 
 Avatar durumları: **IDLE** (bekleme) · **LISTENING** (dinleme) · **THINKING** (düşünme) · **SPEAKING** (konuşma) · **EXECUTING** (işlem) · **CONFIRMING** (onay bekleme) · **ERROR** (hata).
 

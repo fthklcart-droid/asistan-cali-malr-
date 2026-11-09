@@ -90,6 +90,33 @@ class AssistantCoreTest {
         bargeInEnabled = { bargeIn != null }, bargeIn = bargeIn ?: com.fk.jarvis.core.NoBargeIn,
     )
 
+    @Test fun liveToolCallsGoThroughSafetyPolicy() = runTest(StandardTestDispatcher()) {
+        val exec = FakeExecutor { RouteResult.Done(true, "YouTube açıldı.") }
+        val o = build(this, exec)
+        o.liveStarted()
+        assertTrue(o.isLive && o.conversationActive.value)
+        // izinli eylem: hemen yürütülür, gerçek sonuç döner
+        val r1 = o.liveExecute(CommandProposal(CommandIntent.OPEN_APP, arguments = mapOf("app_name" to "YouTube"))) {}
+        assertEquals("BAŞARILI: YouTube açıldı.", r1)
+        // izin listesi dışı: reddedilir
+        assertTrue(o.liveExecute(CommandProposal(CommandIntent.UNKNOWN)) {}.startsWith("REDDEDİLDİ"))
+        // onay gereken: yürütülmez, ekrandaki ONAYLA beklenir
+        var follow: String? = null
+        val r3 = o.liveExecute(CommandProposal(CommandIntent.SCREEN_ACTION, arguments = mapOf("action" to "type", "text" to "merhaba"))) { follow = it }
+        assertTrue(r3.startsWith("ONAY BEKLENİYOR"))
+        assertEquals(1, exec.executed.size)
+        assertEquals(AssistantState.CONFIRMING, o.ui.value.state)
+        o.confirm(true)
+        assertEquals(2, exec.executed.size)
+        assertEquals("BAŞARILI: YouTube açıldı.", follow)
+        // transkript geçmişe yazılır
+        o.liveUserText("saat kaç"); o.liveAssistantText("Saat on."); o.liveTurnComplete()
+        assertEquals("Saat on.", o.ui.value.response)
+        o.liveEnded(null)
+        assertTrue(!o.isLive && !o.conversationActive.value)
+        assertEquals(AssistantState.IDLE, o.ui.value.state)
+    }
+
     @Test fun conversationModeRelistensAfterAnswer() = runTest(StandardTestDispatcher()) {
         val input = FakeInput()
         val o = build(this, input = input, conversation = true)

@@ -33,7 +33,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,8 +73,17 @@ fun HoloPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(6.dp)
+    // Holografik giriş: belirme + aşağıdan kayma + kısa titreme.
+    val appear = remember { Animatable(if (HoloFx.animations) 0f else 1f) }
+    LaunchedEffect(Unit) { if (appear.value < 1f) appear.animateTo(1f, tween(420)) }
     Column(
         modifier.fillMaxWidth()
+            .graphicsLayer {
+                val v = appear.value
+                alpha = (v * (if (v < 0.6f) 0.6f + 0.4f * kotlin.math.abs(kotlin.math.sin(v * 40f)) else 1f)).coerceIn(0f, 1f)
+                translationY = (1f - v) * 24.dp.toPx()
+                scaleX = 0.97f + 0.03f * v
+            }
             .clip(shape)
             .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.13f), JarvisColors.panel)))
             .border(1.dp, accent.copy(alpha = 0.32f), shape)
@@ -235,7 +248,9 @@ fun HoloBackdrop(modifier: Modifier = Modifier) {
     val scan by t.animateFloat(0f, 1f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "s")
     val grid = JarvisColors.violet.copy(alpha = 0.06f)
     val accent = JarvisColors.violet
+    val showGrid = HoloFx.grid
     Canvas(modifier.fillMaxSize().background(JarvisColors.bg)) {
+        if (!showGrid) return@Canvas
         val step = 28.dp.toPx()
         var x = 0f
         while (x < size.width) { drawLine(grid, Offset(x, 0f), Offset(x, size.height), 1f); x += step }
@@ -310,5 +325,31 @@ fun ScreenTitle(title: String, subtitle: String) {
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, color = JarvisColors.text, fontFamily = Mono, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
         Text(subtitle, color = JarvisColors.dim, fontSize = 12.sp)
+    }
+}
+
+/**
+ * Bölme geçişlerinde holografik tarama: parlak bir çizgi ekranı yukarıdan aşağı süpürür,
+ * arkasında kısa bir parazit/ızgara izi bırakır. [key] değiştikçe yeniden oynar.
+ */
+@Composable
+fun HoloSweep(key: Any) {
+    if (!HoloFx.animations) return
+    val p = remember { Animatable(1f) }
+    LaunchedEffect(key) { p.snapTo(0f); p.animateTo(1f, tween(520, easing = LinearEasing)) }
+    val v = p.value
+    if (v >= 1f) return
+    val accent = JarvisColors.violet
+    Canvas(Modifier.fillMaxSize()) {
+        val y = v * size.height
+        drawRect(Brush.verticalGradient(listOf(Color.Transparent, accent.copy(alpha = 0.18f)), startY = y - 220f, endY = y),
+            topLeft = Offset(0f, y - 220f), size = Size(size.width, 220f))
+        drawLine(accent.copy(alpha = 0.9f * (1f - v)), Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
+        // parazit çizgileri
+        val seed = (v * 997).toInt()
+        for (i in 0 until 6) {
+            val yy = ((seed * (i + 3) * 37) % 1000) / 1000f * y
+            drawLine(accent.copy(alpha = 0.25f * (1f - v)), Offset(0f, yy), Offset(size.width * (0.3f + 0.7f * ((i * 13 + seed) % 10) / 10f), yy), 1.dp.toPx())
+        }
     }
 }

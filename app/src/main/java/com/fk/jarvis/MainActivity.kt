@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
 
     private var system by mutableStateOf(SystemStatus())
     private var connectionTest by mutableStateOf<ConnectionTest?>(null)
+    private var installedApps by mutableStateOf<List<AppInfo>>(emptyList())
 
     /** Mikrofon izni verildikten sonra yapılacak iş (sesli oturum ya da uyandırma sözcüğü). */
     private var afterMicGrant: (() -> Unit)? = null
@@ -73,8 +74,8 @@ class MainActivity : ComponentActivity() {
 
     private val actions = object : HoloActions {
         override fun mic() = onMicPressed()
-        override fun endSession() = app.core.endSession()
-        override fun send(text: String) = app.core.submitText(text)
+        override fun endSession() { if (app.live.active.value) app.live.stop() else app.core.endSession() }
+        override fun send(text: String) { if (app.live.active.value) app.live.sendText(text) else app.core.submitText(text) }
         override fun confirm(accepted: Boolean) = app.core.confirm(accepted)
         override fun chooseApp(app: AppInfo) = this@MainActivity.app.core.chooseApp(app)
         override fun cancelChoice() = app.core.cancelChoice()
@@ -100,6 +101,15 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         override fun requestCalendar() = calendarPermission.launch(Manifest.permission.READ_CALENDAR)
+        override fun loadApps() {
+            lifecycleScope.launch {
+                installedApps = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.apps.installedApps() }
+            }
+        }
+        override fun launchApp(info: AppInfo) {
+            val r = app.apps.launch(info)
+            if (!r.success) app.core.speak(r.message)
+        }
         override fun openTtsSettings() {
             try { startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
             catch (e: Exception) { app.permissions.openAppSettings() }
@@ -118,6 +128,7 @@ class MainActivity : ComponentActivity() {
                 val micActive by app.voice.micActive.collectAsStateWithLifecycle()
                 val conversation by app.core.conversationActive.collectAsStateWithLifecycle()
                 val history by app.conversations.entries.collectAsStateWithLifecycle()
+                val liveOn by app.live.active.collectAsStateWithLifecycle()
 
                 LaunchedEffect(ui.state, ui.micDenied) { bridge.setState(ui.state, ui.micDenied) }
                 LaunchedEffect(Unit) { app.core.level.collect { bridge.setLevel(it) } }
@@ -126,6 +137,11 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(settings.avatarStyle) {
                     JarvisColors.artStyle = settings.avatarStyle != "neon"
                     bridge.loadStyle(settings.avatarStyle)
+                }
+                LaunchedEffect(settings.uiAccent, settings.uiAnimations, settings.uiGrid) {
+                    JarvisColors.accentChoice = settings.uiAccent
+                    com.fk.jarvis.ui.HoloFx.animations = settings.uiAnimations
+                    com.fk.jarvis.ui.HoloFx.grid = settings.uiGrid
                 }
                 LaunchedEffect(settings.wakeWord) { if (settings.wakeWord) ensureSessionService(forWake = true) }
 
@@ -142,6 +158,8 @@ class MainActivity : ComponentActivity() {
                         providerReady = { id -> app.ai.byId(id)?.isConfigured == true },
                         keySaved = { id -> app.secrets.has(AIProviderManager.keyName(id)) },
                         connectionTest = connectionTest,
+                        liveActive = liveOn,
+                        installedApps = installedApps,
                     ),
                     a = actions,
                 )
@@ -151,6 +169,15 @@ class MainActivity : ComponentActivity() {
 
     private fun onMicPressed() {
         if (!app.settings.current.consentAccepted) return
+        // Gerçek zamanlı mod: KONUŞ canlı Gemini oturumunu açar/kapatır.
+        if (app.settings.current.liveMode || app.live.active.value) {
+            if (app.live.active.value) { app.live.stop(); return }
+            withMic {
+                val err = app.live.start()
+                if (err != null) app.core.speak(err) else ensureSessionService(forWake = false)
+            }
+            return
+        }
         val core = app.core
         when (core.ui.value.state) {
             AssistantState.LISTENING -> core.stopListening()
@@ -269,6 +296,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        // Live oturumu arka planda ön plan hizmetiyle sürer; hizmet yoksa kapatılır.
+        if (app.live.active.value && !AssistantSessionService.running) app.live.stop()
         // Arka plana geçerken: ön plan hizmeti yoksa (oturum/uyandırma kapalı) mikrofonu kapat.
         val s = app.settings.current
         if (!s.wakeWord && !app.core.conversationActive.value) app.core.cancelListening()

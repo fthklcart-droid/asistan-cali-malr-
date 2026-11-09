@@ -33,6 +33,16 @@ data class AssistantSettings(
     val avatarStyle: String = "art",
     /** İlk açılışta gizlilik ve izin bilgilendirmesini kabul etti mi (Google Play "açık bilgilendirme" kuralı). */
     val consentAccepted: Boolean = false,
+    /** Gerçek zamanlı sesli konuşma: Gemini Live (KONUŞ düğmesi canlı oturum açar). */
+    val liveMode: Boolean = false,
+    val liveModel: String = com.fk.jarvis.live.GeminiLiveProtocol.DEFAULT_MODEL,
+    val liveVoice: String = "Puck",
+    /** Arayüz vurgu rengi: "auto" (avatara göre), "cyan", "violet", "gold", "green". */
+    val uiAccent: String = "auto",
+    /** Holografik geçiş ve giriş animasyonları. */
+    val uiAnimations: Boolean = true,
+    /** Arka plan ızgarası ve tarama çizgisi. */
+    val uiGrid: Boolean = true,
 ) {
     fun modelFor(id: String) = models[id]?.takeIf { it.isNotBlank() } ?: AIProviderManager.defaultModel(id)
     fun baseUrlFor(id: String) = baseUrls[id]?.takeIf { it.isNotBlank() }
@@ -67,6 +77,12 @@ class SettingsRepository(context: Context) {
             avatarSound = prefs.getBoolean("avatar_sound", d.avatarSound),
             avatarStyle = prefs.getString("avatar_style", null) ?: d.avatarStyle,
             consentAccepted = prefs.getBoolean("consent_v1", d.consentAccepted),
+            liveMode = prefs.getBoolean("live_mode", d.liveMode),
+            liveModel = prefs.getString("live_model", null) ?: d.liveModel,
+            liveVoice = prefs.getString("live_voice", null) ?: d.liveVoice,
+            uiAccent = prefs.getString("ui_accent", null) ?: d.uiAccent,
+            uiAnimations = prefs.getBoolean("ui_anim", d.uiAnimations),
+            uiGrid = prefs.getBoolean("ui_grid", d.uiGrid),
         )
     }
 
@@ -88,6 +104,12 @@ class SettingsRepository(context: Context) {
             .putBoolean("avatar_sound", s.avatarSound)
             .putString("avatar_style", if (s.avatarStyle == "neon") "neon" else "art")
             .putBoolean("consent_v1", s.consentAccepted)
+            .putBoolean("live_mode", s.liveMode)
+            .putString("live_model", s.liveModel)
+            .putString("live_voice", s.liveVoice)
+            .putString("ui_accent", s.uiAccent)
+            .putBoolean("ui_anim", s.uiAnimations)
+            .putBoolean("ui_grid", s.uiGrid)
         for (id in ids) {
             val m = s.models[id]
             if (m != null) e.putString("model_$id", m) else e.remove("model_$id")

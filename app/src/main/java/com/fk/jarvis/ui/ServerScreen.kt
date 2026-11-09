@@ -3,6 +3,7 @@ package com.fk.jarvis.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -88,6 +89,7 @@ fun ServerScreen(s: HoloState, a: HoloActions) {
             }
         } else {
             ProviderConfig(editing, info, s, a)
+            if (editing == "gemini") LivePanel(s, a)
         }
 
         HoloPanel(title = "VERİ VE GÜVENLİK") {
@@ -194,4 +196,44 @@ private fun ProviderConfig(id: String, info: ProviderInfo, s: HoloState, a: Holo
         KeyValueRow("İnternet araştırması", if (info.research) "DESTEKLENİR" else "YOK")
     }
     Spacer(Modifier.width(1.dp))
+}
+
+/** Gemini Live: gerçek zamanlı sesli konuşma ayarları (Gemini API anahtarını kullanır). */
+@Composable
+private fun LivePanel(s: HoloState, a: HoloActions) {
+    val st = s.settings
+    var model by remember { mutableStateOf(st.liveModel) }
+    val pink = Color(0xFFFF4D8D)
+    HoloPanel(title = "GEMINI LIVE · GERÇEK ZAMANLI", accent = pink, trailing = {
+        StatusPill(if (s.liveActive) "CANLI" else if (st.liveMode) "AÇIK" else "KAPALI", if (s.liveActive || st.liveMode) pink else JarvisColors.dim, pulse = s.liveActive)
+    }) {
+        HoloSwitchRow(
+            "Gerçek zamanlı konuşma",
+            "KONUŞ düğmesi canlı oturum açar: ses doğrudan Gemini'ye akar, Gemini kendi sesiyle anında yanıt verir. Söz kesilebilir.",
+            st.liveMode,
+        ) { b -> a.updateSettings { it.copy(liveMode = b) } }
+        Spacer(Modifier.height(8.dp))
+        FieldLabel("LIVE MODELİ")
+        Spacer(Modifier.height(4.dp))
+        HoloField(model, { model = it.trim() }, placeholder = com.fk.jarvis.live.GeminiLiveProtocol.DEFAULT_MODEL)
+        Spacer(Modifier.height(6.dp))
+        HoloButton("MODELİ KAYDET", accent = pink) {
+            a.updateSettings { it.copy(liveModel = model.ifBlank { com.fk.jarvis.live.GeminiLiveProtocol.DEFAULT_MODEL }) }
+        }
+        Spacer(Modifier.height(10.dp))
+        FieldLabel("SES")
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.fk.jarvis.live.GeminiLiveProtocol.VOICES.forEach { v ->
+                HoloChip(v.uppercase(), active = st.liveVoice == v, accent = pink) { a.updateSettings { it.copy(liveVoice = v) } }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        BodyText(
+            "Canlı modda konuşma sesi (yalnızca oturum sürerken) Google'a gider; telefon işlemleri yine aynı güvenlik kurallarından geçer, " +
+                "onay gerekenler ekrandaki ONAYLA ile yapılır. \"Araya girme\" kapalıysa model konuşurken mikrofon gönderilmez " +
+                "(hoparlör yankısı modeli kesmesin diye). Live önizleme modelidir; Google model adını değiştirirse buradan güncelle.",
+            size = 12,
+        )
+    }
 }

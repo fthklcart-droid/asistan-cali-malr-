@@ -1,6 +1,16 @@
 package com.fk.jarvis.ui
 
 import android.webkit.WebView
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -92,6 +102,9 @@ class HoloState(
     val providerReady: (String) -> Boolean,
     val keySaved: (String) -> Boolean,
     val connectionTest: ConnectionTest?,
+    /** Gemini Live (gerçek zamanlı) oturumu açık mı. */
+    val liveActive: Boolean = false,
+    val installedApps: List<AppInfo> = emptyList(),
 )
 
 interface HoloActions {
@@ -118,28 +131,50 @@ interface HoloActions {
     fun requestNotifications()
     fun requestCalendar()
     fun openTtsSettings()
+    fun loadApps()
+    fun launchApp(info: AppInfo)
 }
 
-private enum class Tab(val label: String) { ASSISTANT("ASİSTAN"), CHAT("SOHBET"), SERVER("SUNUCU"), SYSTEM("SİSTEM"), SETTINGS("AYARLAR") }
+private enum class Tab(val label: String) {
+    ASSISTANT("ASİSTAN"), CHAT("SOHBET"), APPS("UYGULAMA"), UI("ARAYÜZ"), SERVER("SUNUCU"), SYSTEM("SİSTEM"), SETTINGS("AYARLAR")
+}
 
 @Composable
 fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
     var tabName by rememberSaveable { mutableStateOf(Tab.ASSISTANT.name) }
     val tab = Tab.valueOf(tabName)
-    LaunchedEffect(tab) { if (tab == Tab.SYSTEM || tab == Tab.SERVER) a.refreshSystem() }
+    LaunchedEffect(tab) {
+        if (tab == Tab.SYSTEM || tab == Tab.SERVER) a.refreshSystem()
+        if (tab == Tab.APPS) a.loadApps()
+    }
 
     Box(Modifier.fillMaxSize().background(JarvisColors.bg)) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 // Avatar her zaman yüklü kalır (yeniden açılış animasyonu tekrarlanmasın); diğer sekmeler üstünü örter.
                 AssistantScreen(avatarView, s, a)
-                when (tab) {
-                    Tab.ASSISTANT -> Unit
-                    Tab.CHAT -> Overlay { HistoryScreen(s, a) }
-                    Tab.SERVER -> Overlay { ServerScreen(s, a) }
-                    Tab.SYSTEM -> Overlay { SystemScreen(s, a) }
-                    Tab.SETTINGS -> Overlay { SettingsScreen(s, a) }
+                // Holografik bölme geçişi: belirme + ölçek + dikey kayma, ardından tarama çizgisi.
+                AnimatedContent(
+                    targetState = tab,
+                    transitionSpec = {
+                        if (!HoloFx.animations) EnterTransition.None togetherWith ExitTransition.None
+                        else (fadeIn(tween(320, delayMillis = 60)) + scaleIn(tween(360), initialScale = 0.94f) +
+                            slideInVertically(tween(360)) { it / 14 }) togetherWith
+                            (fadeOut(tween(200)) + scaleOut(tween(220), targetScale = 1.04f))
+                    },
+                    label = "tab",
+                ) { t ->
+                    when (t) {
+                        Tab.ASSISTANT -> Box(Modifier.fillMaxSize())
+                        Tab.CHAT -> Overlay { HistoryScreen(s, a) }
+                        Tab.APPS -> Overlay { AppsScreen(s, a) }
+                        Tab.UI -> Overlay { InterfaceScreen(s, a) }
+                        Tab.SERVER -> Overlay { ServerScreen(s, a) }
+                        Tab.SYSTEM -> Overlay { SystemScreen(s, a) }
+                        Tab.SETTINGS -> Overlay { SettingsScreen(s, a) }
+                    }
                 }
+                HoloSweep(tab)
             }
             TabBar(tab) { tabName = it.name }
         }
@@ -175,11 +210,11 @@ private fun Overlay(content: @Composable () -> Unit) {
 private fun TabBar(selected: Tab, onSelect: (Tab) -> Unit) {
     Column(Modifier.fillMaxWidth().background(Color(0xF2000306)).navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, JarvisColors.violet.copy(alpha = 0.6f), Color.Transparent))))
-        Row(Modifier.fillMaxWidth().height(54.dp)) {
+        Row(Modifier.fillMaxWidth().height(54.dp).horizontalScroll(rememberScrollState())) {
             Tab.entries.forEach { t ->
                 val on = t == selected
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) },
+                    Modifier.width(78.dp).fillMaxHeight().clickable { onSelect(t) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -239,7 +274,9 @@ private fun AssistantScreen(avatarView: WebView, s: HoloState, a: HoloActions) {
                 val pName = AIProviderManager.choices.firstOrNull { it.first == st.provider }?.second ?: "?"
                 val ready = st.provider == "none" || s.providerReady(st.provider)
                 StatusPill(if (st.provider == "none") "CİHAZ İÇİ" else "YZ · ${pName.uppercase()}", if (ready) Color(0xFF3DFFB0) else JarvisColors.gold)
-                if (s.conversation) StatusPill("SESLİ OTURUM", JarvisColors.gold, pulse = true)
+                if (s.liveActive) StatusPill("CANLI · GEMINI LIVE", Color(0xFFFF4D8D), pulse = true)
+                else if (st.liveMode) StatusPill("CANLI MOD HAZIR", Color(0xFFFF4D8D))
+                if (s.conversation && !s.liveActive) StatusPill("SESLİ OTURUM", JarvisColors.gold, pulse = true)
                 if (st.wakeWord) StatusPill("\"${st.assistantName.uppercase()}\" DİNLENİYOR", Color(0xFF7CF3FF))
             }
             ui.error?.let { err ->
@@ -337,7 +374,7 @@ private fun AssistantScreen(avatarView: WebView, s: HoloState, a: HoloActions) {
                         ),
                         shape = RoundedCornerShape(4.dp),
                     )
-                    if (s.conversation || ui.state == AssistantState.SPEAKING || ui.state == AssistantState.PROCESSING) {
+                    if (!s.liveActive && (s.conversation || ui.state == AssistantState.SPEAKING || ui.state == AssistantState.PROCESSING)) {
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             HoloButton(if (ui.state == AssistantState.SPEAKING) "SUSTUR" else "DURDUR", accent = JarvisColors.gold) { a.endSession() }
@@ -350,6 +387,8 @@ private fun AssistantScreen(avatarView: WebView, s: HoloState, a: HoloActions) {
                 val listening = ui.state == AssistantState.LISTENING
                 MicOrb(
                     label = when {
+                        s.liveActive -> "BİTİR"
+                        st.liveMode -> "CANLI"
                         listening -> "TAMAM"
                         ui.state == AssistantState.SPEAKING -> "DİNLE"
                         else -> "KONUŞ"

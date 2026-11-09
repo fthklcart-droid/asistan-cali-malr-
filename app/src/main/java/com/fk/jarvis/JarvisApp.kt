@@ -48,6 +48,8 @@ class JarvisApp : Application() {
         private set
     lateinit var core: AssistantCore
         private set
+    lateinit var live: com.fk.jarvis.live.LiveController
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -90,6 +92,16 @@ class JarvisApp : Application() {
             bargeIn = MicBargeInMonitor(permissions),
         )
         tts.onLevel = { core.onTtsLevel(it) }
+        live = com.fk.jarvis.live.LiveController(
+            core = core,
+            permissions = permissions,
+            apiKey = { secrets.get(AIProviderManager.keyName("gemini")) },
+            model = { settings.current.liveModel },
+            voice = { settings.current.liveVoice },
+            baseUrl = { settings.current.baseUrlFor("gemini") },
+            assistantName = { settings.current.assistantName },
+            bargeIn = { settings.current.bargeIn },
+        )
     }
 
     fun currentProvider(): LLMProvider = ai.current()
