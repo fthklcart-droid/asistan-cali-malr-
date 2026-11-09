@@ -39,7 +39,11 @@ jobs:
 
       - name: Android lint (hata ve uyarılar)
         continue-on-error: true
-        run: ./gradlew --no-daemon lintTamDebug
+        run: |
+          ./gradlew --no-daemon lintTamDebug
+          echo "== LINT ÖZETİ =="
+          grep -E "^[^ ].*: (Error|Warning): " app/build/reports/lint.txt | head -120 || true
+          tail -3 app/build/reports/lint.txt || true
 
       # Release APK'lar: hata ayıklanamaz (debuggable=false), v1+v2+v3 imzalı.
       # Depo sırlarında SRIUS_KEYSTORE_BASE64 vb. tanımlıysa üretim anahtarıyla, değilse depodaki test anahtarıyla imzalanır.
@@ -156,7 +160,7 @@ jobs:
           profile: pixel_6
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash scripts/smoke_test.sh app/build/outputs/apk/tam/debug/app-tam-debug.apk smoke
+          script: timeout 1200 bash scripts/smoke_test.sh app/build/outputs/apk/tam/debug/app-tam-debug.apk smoke
       - name: Sonuçlar
         if: always()
         uses: actions/upload-artifact@v4

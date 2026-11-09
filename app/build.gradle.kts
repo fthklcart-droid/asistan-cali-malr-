@@ -112,7 +112,7 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
         textReport = true
-        textOutput = file("stdout")
+        textOutput = file("build/reports/lint.txt")
         // Yalnızca gerçek sorunları raporla (CI günlüğünde okunabilir kalsın)
         disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion", "ObsoleteLintCustomCheck")
     }

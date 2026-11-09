@@ -8,7 +8,7 @@ PKG=com.fk.jarvis
 mkdir -p "$OUT"
 log() { echo "[smoke] $*"; }
 
-shot() { adb exec-out screencap -p > "$OUT/$1.png"; log "ekran görüntüsü: $1"; }
+shot() { timeout 25 adb exec-out screencap -p > "$OUT/$1.png"; log "ekran görüntüsü: $1"; }
 
 # Ekranda yazısı $1 olan öğeyi bulup dokunur. Bulamazsa alt menüyü kaydırıp tekrar dener.
 tap_text() {
@@ -16,7 +16,7 @@ tap_text() {
   local exact="${2:-}"
   for attempt in 1 2 3 4; do
     dismiss_system_dialogs
-    adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+    timeout 25 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
     adb pull /sdcard/ui.xml "$OUT/ui.xml" >/dev/null 2>&1
     local xy
     xy=$(python3 - "$want" "$OUT/ui.xml" "$exact" <<'PY'
@@ -50,7 +50,7 @@ PY
 
 # Emülatörün kendi uygulamalarından gelen "... yanıt vermiyor" pencerelerini kapatır (bizim uygulamamızla ilgisizdir).
 dismiss_system_dialogs() {
-  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+  timeout 25 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml "$OUT/ui.xml" >/dev/null 2>&1
   if grep -qE "isn't responding|yanıt vermiyor" "$OUT/ui.xml" 2>/dev/null; then
     local who
@@ -81,7 +81,7 @@ adb shell dumpsys package $PKG | grep -E "versionName|targetSdk" | head -3
 adb logcat -c
 
 log "açılış"
-adb shell am start -W -n $PKG/.MainActivity
+timeout 60 adb shell am start -W -n $PKG/.MainActivity
 sleep 8
 shot 01_gizlilik
 tap_text "KABUL EDİYORUM" || FAIL=1
