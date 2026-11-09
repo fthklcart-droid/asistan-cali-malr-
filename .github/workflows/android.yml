@@ -98,7 +98,7 @@ jobs:
 
       # Telefondan doğrudan indirilebilsin diye: Releases sayfasında "apk-latest" ön sürümü + apk-builds dalı.
       - name: APK'yı yayınla (Releases + apk-builds dalı)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
