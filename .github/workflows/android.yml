@@ -2,7 +2,7 @@ name: Android build
 
 on:
   push:
-    branches-ignore: [apk-builds]
+    branches-ignore: [apk-builds, smoke-results]
   pull_request:
   workflow_dispatch:
 
@@ -36,6 +36,10 @@ jobs:
 
       - name: Birim ve entegrasyon testleri
         run: ./gradlew --no-daemon testTamReleaseUnitTest
+
+      - name: Android lint (hata ve uyarılar)
+        continue-on-error: true
+        run: ./gradlew --no-daemon lintTamDebug
 
       # Release APK'lar: hata ayıklanamaz (debuggable=false), v1+v2+v3 imzalı.
       # Depo sırlarında SRIUS_KEYSTORE_BASE64 vb. tanımlıysa üretim anahtarıyla, değilse depodaki test anahtarıyla imzalanır.
@@ -117,3 +121,59 @@ jobs:
           git add SRIUS_JARVIS_tam.apk SRIUS_JARVIS_basit.apk
           git commit -q -m "SRİUS JARVIS APK ($SHORT)"
           git push -f origin apk-builds
+
+  # Emülatörde gerçek çalıştırma: kur, aç, tüm bölmeleri gez, ekran görüntüsü al, çökmeleri yakala.
+  smoke:
+    name: Emülatör testi (Android 15)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android SDK 36
+        run: |
+          SDKM="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin | sort -V | tail -1)/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Debug APK (test için)
+        run: ./gradlew --no-daemon assembleTamDebug
+      - name: Emülatörde çalıştır
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/smoke_test.sh app/build/outputs/apk/tam/debug/app-tam-debug.apk smoke
+      - name: Sonuçlar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-testi
+          path: smoke/
+      - name: Sonuçları smoke-results dalına koy
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          [ -d smoke ] || exit 0
+          cp -r smoke "$RUNNER_TEMP/smoke"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan smoke-results
+          git rm -rf -q --cached . && git clean -fdq
+          cp -r "$RUNNER_TEMP/smoke/." .
+          rm -f ui.xml
+          git add -A
+          git commit -q -m "Emülatör testi ${GITHUB_SHA::7}"
+          git push -f origin smoke-results
