@@ -13,13 +13,14 @@ shot() { adb exec-out screencap -p > "$OUT/$1.png"; log "ekran görüntüsü: $1
 # Ekranda yazısı $1 olan öğeyi bulup dokunur. Bulamazsa alt menüyü kaydırıp tekrar dener.
 tap_text() {
   local want="$1"
+  local exact="${2:-}"
   for attempt in 1 2 3 4; do
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
     adb pull /sdcard/ui.xml "$OUT/ui.xml" >/dev/null 2>&1
     local xy
-    xy=$(python3 - "$want" "$OUT/ui.xml" <<'PY'
+    xy=$(python3 - "$want" "$OUT/ui.xml" "$exact" <<'PY'
 import re, sys
-want, path = sys.argv[1], sys.argv[2]
+want, path, exact = sys.argv[1], sys.argv[2], sys.argv[3] == "exact"
 try:
     xml = open(path, encoding="utf-8").read()
 except Exception:
@@ -27,7 +28,7 @@ except Exception:
 nodes = [(m.group(1), tuple(map(int, m.group(2, 3, 4, 5))))
          for m in re.finditer(r'<node [^>]*?text="([^"]*)"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)]
 # Önce birebir eşleşme, sonra içeren; görünür alanı olan son düğüm (en üstteki katman) tercih edilir.
-for pick in ([n for n in nodes if n[0] == want], [n for n in nodes if want in n[0]]):
+for pick in ([n for n in nodes if n[0] == want], [] if exact else [n for n in nodes if want in n[0]]):
     pick = [n for n in pick if n[1][2] > n[1][0] and n[1][3] > n[1][1]]
     if pick:
         x1, y1, x2, y2 = pick[-1][1]
@@ -62,15 +63,19 @@ shot 02_asistan
 
 i=3
 for TAB in "SOHBET" "UYGULAMA" "ARAYÜZ" "SUNUCU" "SİSTEM" "AYARLAR"; do
-  if tap_text "$TAB"; then sleep 3; shot "$(printf '%02d' $i)_$TAB"; else FAIL=1; fi
+  if tap_text "$TAB" exact; then sleep 3; shot "$(printf '%02d' $i)_$TAB"; else FAIL=1; fi
   i=$((i + 1))
 done
 
 # SUNUCU'da Gemini kartı ve Live paneli; ardından asistana dön, mikrofon küresine dokun
-tap_text "SUNUCU" && sleep 2 && tap_text "GEMINI" && sleep 2 && shot "${i}_SUNUCU_gemini"; i=$((i + 1))
-adb shell input swipe 500 1600 500 400 400; sleep 2; shot "${i}_SUNUCU_live"; i=$((i + 1))
-tap_text "ASİSTAN" && sleep 2
-tap_text "KONUŞ" && sleep 4 && shot "${i}_konus"; i=$((i + 1))
+tap_text "SUNUCU" exact && sleep 2 && tap_text "GEMINI" exact && sleep 2
+adb shell input swipe 500 1700 500 300 400; sleep 1; adb shell input swipe 500 1700 500 300 400; sleep 2; shot "${i}_SUNUCU_live"; i=$((i + 1))
+tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 6 && shot "${i}_neon"; i=$((i + 1))
+tap_text "ART" exact && sleep 2
+tap_text "ASİSTAN" exact && sleep 2
+tap_text "Komut yaz" && sleep 1 && adb shell input text "saat%skac" && adb shell input keyevent KEYCODE_ENTER && sleep 5 && shot "${i}_komut"; i=$((i + 1))
+adb shell input keyevent KEYCODE_BACK; sleep 1
+tap_text "KONUŞ" exact && sleep 5 && shot "${i}_konus"; i=$((i + 1))
 adb shell input keyevent KEYCODE_BACK; sleep 2
 
 log "çökme denetimi"

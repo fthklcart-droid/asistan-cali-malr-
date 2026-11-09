@@ -171,7 +171,7 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git checkout --orphan smoke-results
-          git rm -rf -q --cached . && git clean -fdq
+          git rm -rf -q --cached . && git clean -fdqx
           cp -r "$RUNNER_TEMP/smoke/." .
           rm -f ui.xml
           git add -A

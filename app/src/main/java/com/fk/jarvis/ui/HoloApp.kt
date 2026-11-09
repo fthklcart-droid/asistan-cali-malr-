@@ -210,18 +210,19 @@ private fun Overlay(content: @Composable () -> Unit) {
 private fun TabBar(selected: Tab, onSelect: (Tab) -> Unit) {
     Column(Modifier.fillMaxWidth().background(Color(0xF2000306)).navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, JarvisColors.violet.copy(alpha = 0.6f), Color.Transparent))))
-        Row(Modifier.fillMaxWidth().height(54.dp).horizontalScroll(rememberScrollState())) {
+        // 7 bölmenin hepsi ekrana sığar (kaydırma gerekmez).
+        Row(Modifier.fillMaxWidth().height(54.dp)) {
             Tab.entries.forEach { t ->
                 val on = t == selected
                 Column(
-                    Modifier.width(78.dp).fillMaxHeight().clickable { onSelect(t) },
+                    Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Box(Modifier.width(if (on) 28.dp else 6.dp).height(2.dp).background(if (on) JarvisColors.violet else JarvisColors.stroke))
                     Spacer(Modifier.height(7.dp))
-                    Text(t.label, color = if (on) JarvisColors.violet else JarvisColors.dim, fontFamily = Mono, fontSize = 10.sp, letterSpacing = 1.sp,
-                        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                    Text(t.label, color = if (on) JarvisColors.violet else JarvisColors.dim, fontFamily = Mono, fontSize = 8.5.sp, letterSpacing = 0.sp,
+                        maxLines = 1, softWrap = false, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
                 }
             }
         }

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Holografik büst: neon mavi kontur çizgili baş ve omuzlar, turuncu parlayan yüz (ART avatarının simgesi). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- yüz parıltısı -->
+    <path android:pathData="M54,30m-11,0a11,11 0,1 1,22 0a11,11 0,1 1,-22 0">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient android:type="radial" android:centerX="54" android:centerY="44" android:gradientRadius="13"
+                android:startColor="#FFFFD08A" android:endColor="#00FF8C28" />
+        </aapt:attr>
+    </path>
+    <!-- baş ve omuz silueti -->
+    <path android:strokeColor="#FF46D7FF" android:strokeWidth="2.2" android:fillColor="#00000000"
+        android:strokeLineJoin="round"
+        android:pathData="M54,24 C63,24 67,32 67,42 C67,50 62,56 58,58 L58,62 C60,66 70,67 78,71 C83,74 85,79 85,84 L23,84 C23,79 25,74 30,71 C38,67 48,66 50,62 L50,58 C46,56 41,50 41,42 C41,32 45,24 54,24 Z" />
+    <!-- kontur çizgileri -->
+    <path android:strokeColor="#9946D7FF" android:strokeWidth="1"
+        android:pathData="M44,34 L64,34 M42,40 L66,40 M42,46 L66,46 M44,52 L64,52 M33,74 L75,74 M28,79 L80,79" />
+    <!-- boyun damarı -->
+    <path android:strokeColor="#FFFFC478" android:strokeWidth="1.2" android:fillColor="#00000000"
+        android:pathData="M54,58 L53,64 L55,70 L53,78" />
+</vector>

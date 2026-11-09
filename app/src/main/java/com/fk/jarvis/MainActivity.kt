@@ -118,7 +118,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Siyah zemin: durum ve gezinme çubuğu simgeleri açık renkte olsun.
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         val webView = createAvatarView()
 
         setContent {
