@@ -57,6 +57,9 @@ Depodaki **Releases** sayfasında "apk-latest" sürümünde iki dosya var (her d
 
 İkisi de release (hata ayıklanamaz) derlemedir, v1+v2+v3 imzalıdır ve aynı paket adını kullanır; yalnızca birini kur.
 
+### Google Play'e yükleme
+Play için hazırlık, kendi imza anahtarın, gizlilik politikası ve Play Console beyanları: **[docs/GOOGLE_PLAY_TR.md](docs/GOOGLE_PLAY_TR.md)**. Play'e `.aab` dosyası yüklenir (CI'da `SRIUS_JARVIS_tam.aab` / `SRIUS_JARVIS_basit.aab`).
+
 ### Telefona kurulamıyorsa
 1. **"Play Protect tarafından engellendi" / "Güvenli olmayan uygulama"**: *Daha fazla ayrıntı → Yine de yükle*. Bu seçenek yoksa Play Store → profil → Play Protect → ⚙ → "Uygulamaları Play Protect ile tara" seçeneğini kurulum süresince kapat, kurduktan sonra tekrar aç. Hâlâ engelleniyorsa **basit** sürümü kur: Google'ın dolandırıcılık koruması, dışarıdan yüklenen ve erişilebilirlik hizmeti isteyen uygulamaları bazı ülkelerde doğrudan engeller.
 2. **"Bilinmeyen uygulamalar yüklenemez"**: Ayarlar → Uygulamalar → (dosyayı açtığın uygulama: Dosyalar, Chrome, Claude…) → *Bilinmeyen uygulamaları yükle* → izin ver.

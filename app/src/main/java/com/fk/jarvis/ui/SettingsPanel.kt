@@ -55,6 +55,16 @@ fun SettingsPanel(
     var name by remember { mutableStateOf(settings.assistantName) }
     var info by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pid) { info = null }
+    var showA11yDisclosure by remember { mutableStateOf(false) }
+    if (showA11yDisclosure) {
+        DisclosureDialog(
+            title = "Ekran kontrolü için erişilebilirlik izni",
+            text = Disclosures.ACCESSIBILITY,
+            confirm = "KABUL EDİYORUM",
+            onConfirm = { showA11yDisclosure = false; onOpenAccessibility() },
+            onDismiss = { showA11yDisclosure = false },
+        )
+    }
 
     Column(
         Modifier.fillMaxSize().background(Color(0xF2000306))
@@ -213,7 +223,7 @@ fun SettingsPanel(
                     color = JarvisColors.dim, fontSize = 13.sp,
                 )
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SmallButton("AYARLARI AÇ") { onOpenAccessibility() }
+                    SmallButton("AYARLARI AÇ") { showA11yDisclosure = true }
                     SmallButton("DURUMU YENİLE") { onRefreshAccessibility() }
                 }
             }

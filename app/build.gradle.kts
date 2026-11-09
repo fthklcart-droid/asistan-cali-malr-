@@ -15,16 +15,21 @@ val signingProps = Properties().apply {
 fun signingValue(key: String, env: String): String? = signingProps.getProperty(key) ?: System.getenv(env)
 val releaseStore = signingValue("storeFile", "SRIUS_KEYSTORE")
 
+// Google Play: her yüklemede sürüm kodu artmalı. CI'da çalıştırma numarası kullanılır (yerelde 2).
+val ciVersionCode = (System.getenv("SRIUS_VERSION_CODE") ?: System.getenv("GITHUB_RUN_NUMBER"))?.toIntOrNull()
+// Play'de paket adı bir kez yayınlanınca değişmez; kendi adını vermek için: -PappId=com.senin.adin.asistan
+val appId = (findProperty("appId") as String?) ?: "com.fk.jarvis"
+
 android {
     namespace = "com.fk.jarvis"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.fk.jarvis"
+        applicationId = appId
         minSdk = 26
         targetSdk = 36          // Android 16
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 100 + (ciVersionCode ?: 2)
+        versionName = "0.3.${ciVersionCode ?: 0}"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

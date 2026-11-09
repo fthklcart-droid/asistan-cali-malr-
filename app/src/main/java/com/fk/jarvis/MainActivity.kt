@@ -73,7 +73,6 @@ class MainActivity : ComponentActivity() {
                     bridge.loadStyle(settings.avatarStyle)
                 }
                 LaunchedEffect(settings.wakeWord) { if (settings.wakeWord) ensureSessionService(forWake = true) }
-                LaunchedEffect(ui.permissionRequest) { ui.permissionRequest?.let { runtimePermission.launch(it) } }
 
                 JarvisScreen(
                     avatarView = webView,
@@ -104,12 +103,16 @@ class MainActivity : ComponentActivity() {
                     onRefreshAccessibility = { accessibilityOn = app.permissions.isAccessibilityEnabled() },
                     onShareDraft = { text -> app.core.process(CommandProposal(CommandIntent.SHARE_TEXT, arguments = mapOf("text" to text))) },
                     onCloseDraft = { app.core.clearDraft() },
+                    // İzin, uygulama içi açıklama ekranında kullanıcı "Devam" dedikten sonra sistemden istenir.
+                    onGrantPermission = { perm -> runtimePermission.launch(perm) },
+                    onDenyPermission = { app.core.onPermissionResult(false) },
                 )
             }
         }
     }
 
     private fun onMicPressed() {
+        if (!app.settings.current.consentAccepted) return
         val core = app.core
         when (core.ui.value.state) {
             AssistantState.LISTENING -> core.stopListening()

@@ -84,6 +84,8 @@ fun JarvisScreen(
     onRefreshAccessibility: () -> Unit,
     onShareDraft: (String) -> Unit,
     onCloseDraft: () -> Unit,
+    onGrantPermission: (String) -> Unit,
+    onDenyPermission: () -> Unit,
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
@@ -247,6 +249,23 @@ fun JarvisScreen(
                     RoundButton("BİTİR", JarvisColors.dim, onStopSpeaking)
                 }
             }
+        }
+
+        // Çalışma zamanı izni öncesi açık bilgilendirme (Google Play kullanıcı verisi politikası).
+        ui.permissionRequest?.let { perm ->
+            DisclosureDialog(
+                title = "Takvim izni",
+                text = "\"Bugün ne yapmam gerekiyor?\" sorusunu yanıtlayabilmem için takvimindeki BUGÜNÜN etkinliklerini " +
+                    "okumam gerekiyor. Takvim yalnızca okunur, değiştirilmez; etkinlik bilgileri telefonundan çıkmaz, " +
+                    "yapay zekâ sağlayıcısına gönderilmez. Bir sonraki ekranda Android izin isteyecek.",
+                confirm = "DEVAM",
+                onConfirm = { onGrantPermission(perm) },
+                onDismiss = onDenyPermission,
+            )
+        }
+
+        if (!settings.consentAccepted) {
+            ConsentScreen(onAccept = { onSettingsChange { it.copy(consentAccepted = true) } })
         }
 
         if (showSettings) {

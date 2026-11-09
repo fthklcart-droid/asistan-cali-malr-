@@ -31,6 +31,8 @@ data class AssistantSettings(
     val avatarSound: Boolean = true,
     /** "art" (siyah zemin, neon mavi holografik büst) veya "neon" (mor neon figür). */
     val avatarStyle: String = "art",
+    /** İlk açılışta gizlilik ve izin bilgilendirmesini kabul etti mi (Google Play "açık bilgilendirme" kuralı). */
+    val consentAccepted: Boolean = false,
 ) {
     fun modelFor(id: String) = models[id]?.takeIf { it.isNotBlank() } ?: AIProviderManager.defaultModel(id)
     fun baseUrlFor(id: String) = baseUrls[id]?.takeIf { it.isNotBlank() }
@@ -64,6 +66,7 @@ class SettingsRepository(context: Context) {
             avatarSpeed = prefs.getFloat("avatar_speed", d.avatarSpeed),
             avatarSound = prefs.getBoolean("avatar_sound", d.avatarSound),
             avatarStyle = prefs.getString("avatar_style", null) ?: d.avatarStyle,
+            consentAccepted = prefs.getBoolean("consent_v1", d.consentAccepted),
         )
     }
 
@@ -84,6 +87,7 @@ class SettingsRepository(context: Context) {
             .putFloat("avatar_speed", s.avatarSpeed)
             .putBoolean("avatar_sound", s.avatarSound)
             .putString("avatar_style", if (s.avatarStyle == "neon") "neon" else "art")
+            .putBoolean("consent_v1", s.consentAccepted)
         for (id in ids) {
             val m = s.models[id]
             if (m != null) e.putString("model_$id", m) else e.remove("model_$id")

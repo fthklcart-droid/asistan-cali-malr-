@@ -50,7 +50,10 @@ jobs:
             echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
             export SRIUS_KEYSTORE="$RUNNER_TEMP/release.jks"
           fi
-          ./gradlew --no-daemon assembleTamRelease assembleBasitRelease
+          ./gradlew --no-daemon assembleTamRelease assembleBasitRelease bundleTamRelease bundleBasitRelease
+          if [ -z "$KS_B64" ]; then
+            echo "::warning::Üretim imza anahtarı tanımlı değil: APK/AAB depodaki TEST anahtarıyla imzalandı. Google Play'e yüklemek ve geliştirici doğrulaması için kendi anahtarını SRIUS_KEYSTORE_BASE64 vb. sırlarla ver."
+          fi
 
       - name: APK doğrula (imza şemaları, debuggable, SDK, izinler)
         run: |
@@ -66,6 +69,12 @@ jobs:
             "$BT/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -c "BIND_ACCESSIBILITY_SERVICE" || true
             cp "$APK" "out/SRIUS_JARVIS_$F.apk"
           done
+          # Google Play App Bundle'ları (Play Console'a yüklenecek dosyalar)
+          cp app/build/outputs/bundle/tamRelease/app-tam-release.aab out/SRIUS_JARVIS_tam.aab
+          cp app/build/outputs/bundle/basitRelease/app-basit-release.aab out/SRIUS_JARVIS_basit.aab
+          # Geliştirici doğrulaması / Play Console için imza sertifikası SHA-256 parmak izi
+          echo "== İmza sertifikası =="
+          "$BT/apksigner" verify --print-certs out/SRIUS_JARVIS_tam.apk | grep -E "SHA-256|DN"
           if "$BT/aapt" dump xmltree out/SRIUS_JARVIS_basit.apk AndroidManifest.xml | grep -q "BIND_ACCESSIBILITY_SERVICE"; then
             echo "HATA: basit sürümde erişilebilirlik hizmeti olmamalı"; exit 1
           fi
@@ -82,7 +91,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SRIUS-JARVIS-APK
-          path: out/*.apk
+          path: |
+            out/*.apk
+            out/*.aab
           if-no-files-found: error
 
       # Telefondan doğrudan indirilebilsin diye: Releases sayfasında "apk-latest" ön sürümü + apk-builds dalı.
