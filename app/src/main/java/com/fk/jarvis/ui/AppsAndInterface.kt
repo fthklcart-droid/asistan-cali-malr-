@@ -143,6 +143,9 @@ fun InterfaceScreen(s: HoloState, a: HoloActions) {
                     HoloChip(l, active = st.avatarSpeed == v) { a.updateSettings { it.copy(avatarSpeed = v) } }
                 }
             }
+            HoloSwitchRow("3B holografik katman", "Başın çevresinde dönen 3B halkalar, projektör ışığı, telefon eğimiyle derinlik", st.avatarHolo3d) { b ->
+                a.updateSettings { it.copy(avatarHolo3d = b) }
+            }
             HoloSwitchRow("Avatar ambiyans sesi", checked = st.avatarSound) { b -> a.updateSettings { it.copy(avatarSound = b) } }
             HoloButton("AÇILIŞ ANİMASYONUNU OYNAT", accent = JarvisColors.dim) { a.replayAvatar() }
         }

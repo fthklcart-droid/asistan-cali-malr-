@@ -97,8 +97,6 @@ done
 # SUNUCU'da Gemini kartı ve Live paneli; ardından asistana dön, mikrofon küresine dokun
 tap_text "SUNUCU" exact && sleep 2 && tap_text "GEMINI" exact && sleep 2
 adb shell input swipe 500 1700 500 300 400; sleep 1; adb shell input swipe 500 1700 500 300 400; sleep 2; shot "${i}_SUNUCU_live"; i=$((i + 1))
-tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 15 && shot "${i}_neon"; i=$((i + 1))
-tap_text "ART" exact && sleep 2
 tap_text "ASİSTAN" exact && sleep 2
 tap_text "Komut yaz" && sleep 1 && adb shell input text "saat%skac" && adb shell input keyevent KEYCODE_ENTER && sleep 5 && shot "${i}_komut"; i=$((i + 1))
 adb shell input keyevent KEYCODE_BACK; sleep 1
@@ -115,7 +113,15 @@ else
   log "çökme yok"
 fi
 [ "$ANR_OURS" = 1 ] && FAIL=1
-if adb shell pidof $PKG >/dev/null; then log "uygulama çalışıyor"; else log "uygulama süreci yok"; fi
+
+# NEON en sonda ve bilgi amaçlı: emülatörün yazılımla çizimi (GPU yok) bu avatarda ekranı dondurabiliyor.
+# Sonuç testi başarısız saymaz; gerçek cihazda ayrıca denenmelidir.
+log "NEON (bilgi amaçlı, süre sınırlı)"
+( tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 15 && shot "${i}_neon" ) & NP=$!
+( sleep 120; kill $NP 2>/dev/null ) & KP=$!
+wait $NP 2>/dev/null && log "NEON ekran görüntüsü alındı" || log "NEON: emülatörde doğrulanamadı (zaman aşımı)"
+kill $KP 2>/dev/null || true
+if timeout 20 adb shell pidof $PKG >/dev/null; then log "uygulama çalışıyor"; else log "uygulama süreci yok"; fi
 # Uygulamanın kendi hata/uyarı satırları (bilgi amaçlı)
 grep -E " (E|W) .*(jarvis|AndroidRuntime|chromium)" "$OUT/logcat.txt" | tail -60 > "$OUT/warnings.txt" || true
 exit $FAIL

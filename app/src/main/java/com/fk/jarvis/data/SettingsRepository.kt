@@ -43,6 +43,8 @@ data class AssistantSettings(
     val uiAnimations: Boolean = true,
     /** Arka plan ızgarası ve tarama çizgisi. */
     val uiGrid: Boolean = true,
+    /** Avatarların üstünde 3B holografik katman (yörünge halkaları, projektör, eğilme). */
+    val avatarHolo3d: Boolean = true,
 ) {
     fun modelFor(id: String) = models[id]?.takeIf { it.isNotBlank() } ?: AIProviderManager.defaultModel(id)
     fun baseUrlFor(id: String) = baseUrls[id]?.takeIf { it.isNotBlank() }
@@ -83,6 +85,7 @@ class SettingsRepository(context: Context) {
             uiAccent = prefs.getString("ui_accent", null) ?: d.uiAccent,
             uiAnimations = prefs.getBoolean("ui_anim", d.uiAnimations),
             uiGrid = prefs.getBoolean("ui_grid", d.uiGrid),
+            avatarHolo3d = prefs.getBoolean("avatar_holo3d", d.avatarHolo3d),
         )
     }
 
@@ -110,6 +113,7 @@ class SettingsRepository(context: Context) {
             .putString("ui_accent", s.uiAccent)
             .putBoolean("ui_anim", s.uiAnimations)
             .putBoolean("ui_grid", s.uiGrid)
+            .putBoolean("avatar_holo3d", s.avatarHolo3d)
         for (id in ids) {
             val m = s.models[id]
             if (m != null) e.putString("model_$id", m) else e.remove("model_$id")

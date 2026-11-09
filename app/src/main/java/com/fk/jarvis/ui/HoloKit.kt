@@ -35,6 +35,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
@@ -73,16 +76,32 @@ fun HoloPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(6.dp)
-    // Holografik giriş: belirme + aşağıdan kayma + kısa titreme.
+    // Holografik giriş: ekrandaki konumuna göre kademeli (yukarıdan aşağı) 3B açılma + kısa titreme.
     val appear = remember { Animatable(if (HoloFx.animations) 0f else 1f) }
-    LaunchedEffect(Unit) { if (appear.value < 1f) appear.animateTo(1f, tween(420)) }
+    var topY by remember { androidx.compose.runtime.mutableStateOf<Float?>(null) }
+    LaunchedEffect(topY) {
+        val y = topY ?: return@LaunchedEffect
+        if (appear.value < 1f) {
+            kotlinx.coroutines.delay((y / 2400f * 380f).toLong().coerceIn(0L, 380L))
+            appear.animateTo(1f, tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        }
+    }
+    // Çerçevede dolaşan holografik parıltı.
+    val sheen = if (HoloFx.animations) {
+        val inf = rememberInfiniteTransition(label = "sheen")
+        inf.animateFloat(0f, 1f, infiniteRepeatable(tween(3600, easing = LinearEasing), RepeatMode.Restart), label = "sheenP").value
+    } else -1f
     Column(
         modifier.fillMaxWidth()
+            .onGloballyPositioned { if (topY == null) topY = it.positionInRoot().y.coerceAtLeast(0f) }
             .graphicsLayer {
                 val v = appear.value
                 alpha = (v * (if (v < 0.6f) 0.6f + 0.4f * kotlin.math.abs(kotlin.math.sin(v * 40f)) else 1f)).coerceIn(0f, 1f)
-                translationY = (1f - v) * 24.dp.toPx()
-                scaleX = 0.97f + 0.03f * v
+                translationY = (1f - v) * 36.dp.toPx()
+                rotationX = (1f - v) * 42f
+                cameraDistance = 12f * density
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                scaleX = 0.94f + 0.06f * v
             }
             .clip(shape)
             .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.13f), JarvisColors.panel)))
@@ -95,6 +114,20 @@ fun HoloPanel(
                 drawLine(c, Offset(size.width, 0f), Offset(size.width - l, 0f), w); drawLine(c, Offset(size.width, 0f), Offset(size.width, l), w)
                 drawLine(c, Offset(0f, size.height), Offset(l, size.height), w); drawLine(c, Offset(0f, size.height), Offset(0f, size.height - l), w)
                 drawLine(c, Offset(size.width, size.height), Offset(size.width - l, size.height), w); drawLine(c, Offset(size.width, size.height), Offset(size.width, size.height - l), w)
+                if (sheen >= 0f) {
+                    // üst ve alt kenarda karşılıklı kayan ışık + panel yüzeyinde çapraz parıltı
+                    val x = sheen * (size.width + 200f) - 100f
+                    val glow = Brush.horizontalGradient(listOf(Color.Transparent, accent.copy(alpha = 0.95f), Color.Transparent), startX = x - 90f, endX = x + 90f)
+                    drawLine(glow, Offset(0f, 0f), Offset(size.width, 0f), 1.6.dp.toPx())
+                    val xb = size.width - x
+                    val glowB = Brush.horizontalGradient(listOf(Color.Transparent, accent.copy(alpha = 0.7f), Color.Transparent), startX = xb - 70f, endX = xb + 70f)
+                    drawLine(glowB, Offset(0f, size.height), Offset(size.width, size.height), 1.2.dp.toPx())
+                    val gx = sheen * (size.width + size.height) * 1.4f - size.height
+                    drawRect(Brush.linearGradient(
+                        listOf(Color.Transparent, Color.White.copy(alpha = 0.035f), Color.Transparent),
+                        start = Offset(gx, 0f), end = Offset(gx + size.height * 0.6f, size.height),
+                    ))
+                }
             }
             .padding(14.dp),
     ) {

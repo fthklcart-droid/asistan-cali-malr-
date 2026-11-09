@@ -59,6 +59,8 @@ class AvatarBridge {
     fun replay() = js("avatar.replay()")
     fun setSpeed(speed: Float) = js("avatar.setSpeed(${"%.2f".format(java.util.Locale.US, speed)})")
     fun setSound(on: Boolean) = js("avatar.setSound($on)")
+    /** 3B holografik katman (halkalar, projektör, eğilme) açık/kapalı. */
+    fun setHolo(on: Boolean) = js("avatar.setHolo && avatar.setHolo($on)")
 
     private fun js(code: String) {
         val w = ref.get() ?: return

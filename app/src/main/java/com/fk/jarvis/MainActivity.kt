@@ -147,6 +147,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) { app.core.level.collect { bridge.setLevel(it) } }
                 LaunchedEffect(settings.avatarSpeed) { bridge.setSpeed(settings.avatarSpeed) }
                 LaunchedEffect(settings.avatarSound) { bridge.setSound(settings.avatarSound) }
+                LaunchedEffect(settings.avatarHolo3d) { bridge.setHolo(settings.avatarHolo3d) }
                 LaunchedEffect(settings.avatarStyle) {
                     JarvisColors.artStyle = settings.avatarStyle != "neon"
                     bridge.loadStyle(settings.avatarStyle)
@@ -298,6 +299,8 @@ class MainActivity : ComponentActivity() {
                 bridge.onPageLoaded()
                 bridge.setSpeed(app.settings.current.avatarSpeed)
                 bridge.setSound(app.settings.current.avatarSound)
+                // holo3d.js avatar betiğinden sonra yüklenir; kısa gecikmeyle ayarı uygula.
+                view?.postDelayed({ bridge.setHolo(app.settings.current.avatarHolo3d) }, 600)
             }
         }
     }

@@ -43,6 +43,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -143,10 +145,13 @@ private enum class Tab(val label: String) {
     ASSISTANT("ASİSTAN"), CHAT("SOHBET"), APPS("UYGULAMA"), UI("ARAYÜZ"), SERVER("SUNUCU"), SYSTEM("SİSTEM"), SETTINGS("AYARLAR")
 }
 
+@OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
 fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
     var tabName by rememberSaveable { mutableStateOf(Tab.ASSISTANT.name) }
     val tab = Tab.valueOf(tabName)
+    // Geçiş yönü: sağdaki bölmeye geçerken içerik sağdan, soldakine geçerken soldan döner.
+    var dir by remember { androidx.compose.runtime.mutableIntStateOf(1) }
     LaunchedEffect(tab) {
         if (tab == Tab.SYSTEM || tab == Tab.SERVER) a.refreshSystem()
         if (tab == Tab.APPS) a.loadApps()
@@ -161,13 +166,31 @@ fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
                 AnimatedContent(
                     targetState = tab,
                     transitionSpec = {
+                        val d = if (targetState.ordinal >= initialState.ordinal) 1 else -1
                         if (!HoloFx.animations) EnterTransition.None togetherWith ExitTransition.None
-                        else (fadeIn(tween(320, delayMillis = 60)) + scaleIn(tween(360), initialScale = 0.94f) +
-                            slideInVertically(tween(360)) { it / 14 }) togetherWith
-                            (fadeOut(tween(200)) + scaleOut(tween(220), targetScale = 1.04f))
+                        else (fadeIn(tween(340, delayMillis = 40)) + scaleIn(tween(420, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.9f) +
+                            androidx.compose.animation.slideInHorizontally(tween(420, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { d * it / 5 }) togetherWith
+                            (fadeOut(tween(240)) + scaleOut(tween(300), targetScale = 0.92f) +
+                                androidx.compose.animation.slideOutHorizontally(tween(320)) { -d * it / 6 })
                     },
                     label = "tab",
                 ) { t ->
+                    // 3B döner geçiş: içerik Y ekseni etrafında perspektifle dönerek gelir/gider.
+                    val rot by transition.animateFloat(
+                        transitionSpec = { tween(440, easing = androidx.compose.animation.core.FastOutSlowInEasing) },
+                        label = "rot3d",
+                    ) { e ->
+                        if (!HoloFx.animations) 0f else when (e) {
+                            androidx.compose.animation.EnterExitState.PreEnter -> 38f * dir
+                            androidx.compose.animation.EnterExitState.Visible -> 0f
+                            androidx.compose.animation.EnterExitState.PostExit -> -30f * dir
+                        }
+                    }
+                    Box(Modifier.fillMaxSize().graphicsLayer {
+                        rotationY = rot
+                        cameraDistance = 14f * density
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (dir > 0) 0f else 1f, 0.5f)
+                    }) {
                     when (t) {
                         Tab.ASSISTANT -> Box(Modifier.fillMaxSize())
                         Tab.CHAT -> Overlay { HistoryScreen(s, a) }
@@ -177,10 +200,11 @@ fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
                         Tab.SYSTEM -> Overlay { SystemScreen(s, a) }
                         Tab.SETTINGS -> Overlay { SettingsScreen(s, a) }
                     }
+                    }
                 }
                 HoloSweep(tab)
             }
-            TabBar(tab) { tabName = it.name }
+            TabBar(tab) { dir = if (it.ordinal >= tab.ordinal) 1 else -1; tabName = it.name }
         }
 
         // Çalışma zamanı izni öncesi açık bilgilendirme (Google Play kullanıcı verisi politikası).
@@ -218,15 +242,23 @@ private fun TabBar(selected: Tab, onSelect: (Tab) -> Unit) {
         Row(Modifier.fillMaxWidth().height(54.dp)) {
             Tab.entries.forEach { t ->
                 val on = t == selected
+                // Seçili bölme: yaylı genişleyen gösterge, renk geçişi, hafif büyüme ve alttan parlama.
+                val spring = androidx.compose.animation.core.spring<androidx.compose.ui.unit.Dp>(dampingRatio = 0.55f, stiffness = 420f)
+                val barW by androidx.compose.animation.core.animateDpAsState(if (on) 30.dp else 6.dp, spring, label = "bar")
+                val col by androidx.compose.animation.animateColorAsState(if (on) JarvisColors.violet else JarvisColors.dim, tween(260), label = "col")
+                val scale by androidx.compose.animation.core.animateFloatAsState(if (on) 1.08f else 1f, androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 380f), label = "sc")
+                val glow by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, tween(320), label = "glow")
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) },
+                    Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, JarvisColors.violet.copy(alpha = 0.16f * glow)))),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(Modifier.width(if (on) 28.dp else 6.dp).height(2.dp).background(if (on) JarvisColors.violet else JarvisColors.stroke))
+                    Box(Modifier.width(barW).height(2.dp).background(if (on) Brush.horizontalGradient(listOf(JarvisColors.violet.copy(alpha = 0.3f), JarvisColors.violet, JarvisColors.violet.copy(alpha = 0.3f))) else Brush.horizontalGradient(listOf(JarvisColors.stroke, JarvisColors.stroke))))
                     Spacer(Modifier.height(7.dp))
-                    Text(t.label, color = if (on) JarvisColors.violet else JarvisColors.dim, fontFamily = Mono, fontSize = 8.5.sp, letterSpacing = 0.sp,
-                        maxLines = 1, softWrap = false, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                    Text(t.label, color = col, fontFamily = Mono, fontSize = 8.5.sp, letterSpacing = 0.sp,
+                        maxLines = 1, softWrap = false, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
                 }
             }
         }

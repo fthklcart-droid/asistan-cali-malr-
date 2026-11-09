@@ -373,6 +373,9 @@
     setSpeed(v) { st.speed = clamp(+v || 1, 0.25, 4); },
     setSound(on) { st.sound = !!on; if (on) audio(); },
     bolt() {},
+    /** 3B katman için baş merkezi ve yarıçapı (CSS piksel). */
+    anchor() { return { x: OX + 500 * S, y: OY + HEAD_CY * S, r: 135 * S, base: H }; },
+    quality() { return Q.level; },
   };
 
   window.addEventListener('resize', resize);
