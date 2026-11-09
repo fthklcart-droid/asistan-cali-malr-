@@ -23,6 +23,15 @@
   const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
   const easeOut = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
 
+
+  // ---------- uyarlanabilir kalite ----------
+  // Kare süresi uzun kalırsa (zayıf GPU / yazılımla çizim) efektler kademeli azaltılır: 2 yüksek, 1 orta, 0 düşük.
+  const Q = { level: 2, avg: 16, n: 0 };
+  function trackQuality(ms) {
+    Q.avg = Q.avg * 0.92 + Math.min(ms, 200) * 0.08;
+    if (++Q.n > 45 && Q.avg > 40 && Q.level > 0) { Q.level--; Q.n = 0; Q.avg = 22; }
+  }
+
   // ---------- ekran dönüşümü ----------
   let W = 0, H = 0, DPR = 1, S = 1, OX = 0, OY = 0;
   function resize() {
@@ -301,7 +310,7 @@
   function glowLine(pts, col, w, a, from = 0, to = pts.length - 1) {
     if (to - from < 1 || a <= 0.003) return;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = rgba(col, 0.07 * a); ctx.lineWidth = w * 9 * S; strokePts(pts, from, to);
+    if (Q.level > 0) { ctx.strokeStyle = rgba(col, 0.07 * a); ctx.lineWidth = w * 9 * S; strokePts(pts, from, to); }
     ctx.strokeStyle = rgba(col, 0.22 * a); ctx.lineWidth = w * 3.2 * S; strokePts(pts, from, to);
     ctx.strokeStyle = rgba(COL.white, 0.75 * a); ctx.lineWidth = Math.max(0.6, w * 0.9 * S); strokePts(pts, from, to);
   }
@@ -379,7 +388,9 @@
 
     // parçacıklar
     const cx = 500, cy = 560;
-    for (const p of particles) {
+    for (let pi = 0; pi < particles.length; pi++) {
+      if (Q.level === 0 && (pi & 1)) continue;
+      const p = particles[pi];
       let x, y, a;
       if (it < T_ORB) continue;
       if (it < T_GAL + p.d) {
@@ -558,6 +569,7 @@
   // ---------- ana döngü ----------
   let last = performance.now(), nextBolt = 6;
   function frame(now) {
+    trackQuality(now - last);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
     dt *= st.speed;
     st.t += dt;
@@ -594,7 +606,7 @@
     drawFigure(t, A);
     drawFaceFx(t, A);
     drawBolts(dt);
-    bloom(st.state === 'micoff' ? 0.25 : 0.55 + 0.25 * st.lvl);
+    if (Q.level === 2) bloom(st.state === 'micoff' ? 0.25 : 0.55 + 0.25 * st.lvl);
     if (st.state === 'micoff') { ctx.fillStyle = 'rgba(5,0,12,0.25)'; ctx.fillRect(0, 0, W, H); }
     updatePad();
     requestAnimationFrame(frame);

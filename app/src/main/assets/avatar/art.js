@@ -17,6 +17,15 @@
   const CYAN = [70, 215, 255], CYAN2 = [150, 240, 255], ORANGE = [255, 140, 40], AMBER = [255, 200, 90], RED = [255, 70, 90];
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
+
+  // ---------- uyarlanabilir kalite ----------
+  // Kare süresi uzun kalırsa (zayıf GPU / yazılımla çizim) efektler kademeli azaltılır: 2 yüksek, 1 orta, 0 düşük.
+  const Q = { level: 2, avg: 16, n: 0 };
+  function trackQuality(ms) {
+    Q.avg = Q.avg * 0.92 + Math.min(ms, 200) * 0.08;
+    if (++Q.n > 45 && Q.avg > 40 && Q.level > 0) { Q.level--; Q.n = 0; Q.avg = 22; }
+  }
+
   let W = 0, H = 0, DPR = 1, S = 1, OX = 0, OY = 0;
   const sx = (x) => OX + x * S, sy = (y) => OY + y * S;
 
@@ -139,7 +148,9 @@
     const reveal = ease((st.intro - T_ASM + 0.6) / 1.6);
     if (reveal <= 0) return;
     ctx.globalCompositeOperation = 'lighter';
-    for (const m of mountain) {
+    for (let mi = 0; mi < mountain.length; mi++) {
+      if (Q.level === 0 && (mi % 3)) continue;
+      const m = mountain[mi];
       const tw = 0.6 + 0.4 * Math.sin(t * 1.5 + m.p * 7);
       const a = m.a * tw * reveal * A * (m.ridge ? 1 : 0.4) * (1 - m.k * 0.05);
       const x = m.u * W, y = m.v * H + Math.sin(t * 0.4 + m.u * 9) * 1.5;
@@ -239,7 +250,9 @@
     }
 
     // başın üstündeki parçacık aurası
-    for (const p of aura) {
+    for (let ai = 0; ai < aura.length; ai++) {
+      if (Q.level === 0 && (ai & 1)) continue;
+      const p = aura[ai];
       const life = (p.r + t * p.sp * (s === 'talking' ? 2 : 1)) % 1;
       const rad = HEAD_RX * (1.02 + life * 0.9);
       const x = 500 + Math.cos(p.ang) * rad * 1.05;
@@ -315,6 +328,7 @@
 
   let last = performance.now();
   function frame(now) {
+    trackQuality(now - last);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
     dt *= st.speed; st.t += dt; st.intro += dt;
     const t = st.t;
@@ -337,7 +351,7 @@
     drawMountains(t, st.bright);
     drawBust(t, st.bright);
     drawIntro(t);
-    bloom(0.5 + 0.3 * st.lvl);
+    if (Q.level === 2) bloom(0.5 + 0.3 * st.lvl);
     drawHud();
     if (pad && ac) pad.gain.setTargetAtTime(st.sound ? 0.01 + st.lvl * 0.01 : 0, ac.currentTime, 0.4);
     requestAnimationFrame(frame);

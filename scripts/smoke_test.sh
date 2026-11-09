@@ -97,7 +97,7 @@ done
 # SUNUCU'da Gemini kartı ve Live paneli; ardından asistana dön, mikrofon küresine dokun
 tap_text "SUNUCU" exact && sleep 2 && tap_text "GEMINI" exact && sleep 2
 adb shell input swipe 500 1700 500 300 400; sleep 1; adb shell input swipe 500 1700 500 300 400; sleep 2; shot "${i}_SUNUCU_live"; i=$((i + 1))
-tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 6 && shot "${i}_neon"; i=$((i + 1))
+tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 15 && shot "${i}_neon"; i=$((i + 1))
 tap_text "ART" exact && sleep 2
 tap_text "ASİSTAN" exact && sleep 2
 tap_text "Komut yaz" && sleep 1 && adb shell input text "saat%skac" && adb shell input keyevent KEYCODE_ENTER && sleep 5 && shot "${i}_komut"; i=$((i + 1))
