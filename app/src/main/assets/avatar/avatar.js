@@ -28,14 +28,20 @@
   // Kare süresi uzun kalırsa (zayıf GPU / yazılımla çizim) efektler kademeli azaltılır: 2 yüksek, 1 orta, 0 düşük.
   const Q = { level: 2, avg: 16, n: 0 };
   function trackQuality(ms) {
-    Q.avg = Q.avg * 0.92 + Math.min(ms, 200) * 0.08;
-    if (++Q.n > 45 && Q.avg > 40 && Q.level > 0) { Q.level--; Q.n = 0; Q.avg = 22; }
+    // 1,5 saniyelik pencerelerde ortalama kare süresine bakılır (çok yavaş cihazda da hızlı tepki).
+    Q.acc = (Q.acc || 0) + ms; Q.sum = (Q.sum || 0) + Math.min(ms, 1000); Q.n++;
+    if (Q.acc < 1500 || Q.n < 3) return;
+    const avg = Q.sum / Q.n;
+    Q.acc = 0; Q.sum = 0; Q.n = 0;
+    if (Q.level === 0) return;
+    const next = avg > 120 ? 0 : avg > 40 ? Q.level - 1 : Q.level;
+    if (next !== Q.level) { Q.level = next; if (next === 0) resize(); } // en düşükte çözünürlük 1x
   }
 
   // ---------- ekran dönüşümü ----------
   let W = 0, H = 0, DPR = 1, S = 1, OX = 0, OY = 0;
   function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    DPR = Math.min(window.devicePixelRatio || 1, Q.level === 0 ? 1 : 2);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     S = Math.min(W / 560, H / 1000);
@@ -569,6 +575,8 @@
   // ---------- ana döngü ----------
   let last = performance.now(), nextBolt = 6;
   function frame(now) {
+    // Düşük kalitede saniyede en fazla ~30 kare çizilir.
+    if (Q.level === 0 && (Q.skip = !Q.skip)) { requestAnimationFrame(frame); return; }
     trackQuality(now - last);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
     dt *= st.speed;
