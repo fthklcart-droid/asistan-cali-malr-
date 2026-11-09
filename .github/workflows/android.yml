@@ -2,11 +2,12 @@ name: Android build
 
 on:
   push:
+    branches-ignore: [apk-builds]
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # yalnızca APK'yı Releases sayfasına ve apk-builds dalına koymak için
 
 concurrency:
   group: android-${{ github.ref }}
@@ -79,3 +80,25 @@ jobs:
           name: SRIUS-JARVIS-APK
           path: out/*.apk
           if-no-files-found: error
+
+      # Telefondan doğrudan indirilebilsin diye: Releases sayfasında "apk-latest" ön sürümü + apk-builds dalı.
+      - name: APK'yı yayınla (Releases + apk-builds dalı)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          gh release delete apk-latest -y --cleanup-tag || true
+          gh release create apk-latest out/SRIUS_JARVIS_debug.apk \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "SRİUS JARVIS — son debug APK ($SHORT)" \
+            --notes "Dal: ${GITHUB_REF_NAME}, commit $SHORT. Test anahtarıyla imzalı debug APK. Gerçek cihazda test edilmedi."
+          cp out/SRIUS_JARVIS_debug.apk "$RUNNER_TEMP/app.apk"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan apk-builds
+          git rm -rf -q --cached . && git clean -fdq
+          cp "$RUNNER_TEMP/app.apk" SRIUS_JARVIS_debug.apk
+          git add SRIUS_JARVIS_debug.apk
+          git commit -q -m "SRİUS JARVIS debug APK ($SHORT)"
+          git push -f origin apk-builds
