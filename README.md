@@ -17,17 +17,21 @@ Kotlin + Jetpack Compose; avatar WebView içinde Canvas ile çizilir. Hedef: **A
 
 Alt çubuktaki **ARAYÜZ** düğmesi veya Ayarlar > Arayüz ile değişir. Arayüz renkleri seçili avatara uyar (ART'ta neon mavi). Avatar çizim kodu (`app/src/main/assets/avatar/`) bu sürümde değiştirilmedi; yalnızca ses sistemine bağlandı.
 
-**Holografik arayüz (7 bölme, alt menü; bölme geçişlerinde tarama çizgisi, panellerde belirme/titreme efektleri):**
+**Holografik arayüz:** alt çubukta 6 bölme (ASİSTAN, AJAN, TAKVİM, WEB, UYGULAMA, MENÜ); diğer bölümler MENÜ'den açılır. Bölmeler 3B dönerek geçer, paneller kademeli açılır.
 
 | Bölme | İçerik |
 |---|---|
 | **ASİSTAN** | Avatar, HUD başlığı (durum, mikrofon, yapay zekâ, oturum ışıkları), canlı metin dökümü, onay/seçim/taslak panelleri, ses seviyesi göstergesi, animasyonlu mikrofon küresi, yazılı komut |
-| **SOHBET** | Konuşma geçmişi (yalnızca metin, cihazda), silme |
+| **AJAN** | Çok adımlı görev ajanı: görev yaz ya da hazır görev seç (günlük brifing, yarınki programım, açık sayfayı özetle…); adımlar canlı listelenir, onay gereken adımda ONAYLA/REDDET, sonucu sesli okuma, DURDUR |
+| **TAKVİM** | Haftalık şerit, seçili günün etkinlikleri (dokununca takvim uygulamasında açılır), yeni etkinlik formu (başlık, saat, süre, yer) |
+| **WEB** | Uygulama içi tarayıcı: adres/arama çubuğu, geri/ileri/yenile, güvenli bağlantı göstergesi, yapay zekâyla **sayfa özeti**, dış tarayıcıda açma. Asistan ve ajan da bu tarayıcıyı kullanır |
 | **UYGULAMA** | Cihazdaki uygulamalar: arama, hızlı erişim, tek dokunuşla açma |
-| **ARAYÜZ** | Avatar (ART/NEON), animasyon hızı, vurgu rengi (otomatik/mavi/mor/altın/yeşil), geçiş efektleri ve ızgara aç/kapat |
-| **SUNUCU** | Sağlayıcı kartları (Gemini, OpenAI, Claude, yerel, cihaz içi), API anahtarı, model, proxy/yerel sunucu adresi, gerçek **bağlantı testi** (yanıt süresiyle), **Gemini Live** (gerçek zamanlı konuşma) ayarları |
-| **SİSTEM** | Mikrofon, bildirim, takvim, ekran kontrolü izinleri; konuşma tanıma ve Türkçe seslendirme durumu; arka plan hizmeti; sürüm ve **imza SHA-256** (test/üretim anahtarı) |
-| **AYARLAR** | Asistan adı, kesintisiz sohbet, araya girme, sessizlik süresi, konuşma hızı/tonu, uyandırma sözcüğü, gizlilik |
+| **MENÜ → SOHBET** | Konuşma geçmişi (yalnızca metin, cihazda), silme |
+| **MENÜ → HAFIZA** | Kalıcı hafıza (kategorilere göre, tek tek/topluca silme, yapay zekâyla paylaşım anahtarı), takip edilen konular, geri alınabilir işlemler |
+| **MENÜ → ARAYÜZ** | Avatar (ART/NEON), animasyon hızı, vurgu rengi (otomatik/mavi/mor/altın/yeşil), geçiş efektleri ve ızgara aç/kapat |
+| **MENÜ → SUNUCU** | Sağlayıcı kartları (Gemini, OpenAI, Claude, yerel, cihaz içi), API anahtarı, model, proxy/yerel sunucu adresi, gerçek **bağlantı testi** (yanıt süresiyle), **Gemini Live** (gerçek zamanlı konuşma) ayarları |
+| **MENÜ → SİSTEM** | Mikrofon, bildirim, takvim, ekran kontrolü izinleri; konuşma tanıma ve Türkçe seslendirme durumu; arka plan hizmeti; sürüm ve **imza SHA-256** (test/üretim anahtarı) |
+| **MENÜ → AYARLAR** | Asistan adı, kesintisiz sohbet, araya girme, sessizlik süresi, konuşma hızı/tonu, uyandırma sözcüğü, gizlilik |
 
 ### Gemini Live — gerçek zamanlı konuşma
 SUNUCU → Gemini → **Gemini Live** → "Gerçek zamanlı konuşma"yı aç. Artık **KONUŞ** (CANLI) düğmesi bir canlı oturum açar:
@@ -163,11 +167,26 @@ Android Studio (Meerkat+) ya da JDK 17 + Android SDK 36:
 | "Geri git", "Aşağı kaydır", "Bildirimleri aç", "Ayarlar'a dokun", "Şunu yaz merhaba", "Seçili metni kopyala" | Erişilebilirlik hizmetiyle (yazma her zaman onaylı) |
 | "Kotlin diye ara", "Taksim için yol tarifi", "0555… numarasını ara" | Web araması / harita / numaralı arama ekranı |
 | "Görüşürüz", "Dur" | Sohbeti bitirir / susar |
+| "Yarın neler var?", "Cuma programım ne?" | O günün etkinliklerini okur |
+| "Bunu hatırla: annemin doğum günü 3 mayıs" | Kalıcı hafızaya kaydeder ve kaydettiğini söyler (parola/kart/kod kaydedilmez) |
+| "Benim hakkımda ne biliyorsun?", "Hafızanı sil" (onaylı) | Hafızadakileri okur / siler |
+| "Geri al" | Asistanın yaptığı son değişikliği geri alır (takvime eklenen etkinliği siler, hafıza kaydını geri alır) |
+| "Pil durumu ne?", "Telefonun durumu" | Pil, sıcaklık, bellek, depolama, ağ |
+| "Uzay araştırmaları haberlerini takip et", "Takip listem", "… takibini bırak" | Günde bir kez yeni gelişme aranır, varsa bildirim gelir (kripto/borsa kabul edilmez) |
+| "Kameraya bak ve bu bitki ne", "Ne görüyorsun?" | Kamera uygulaması açılır; çektiğin fotoğraf yapay zekâya sorulur (Gemini veya OpenAI) |
+| "Günaydın", "Brifing ver" | Ajan: saat, bugünkü takvim, hafızadaki hedefler ve günün haberleri ile kısa sabah brifingi |
+| "Ajan, cumartesi için sinema seanslarını araştır ve uygunsa takvimime ekle" | Görevi AJAN'a verir; adımlar AJAN bölmesinde izlenir, takvime yazma onaylı |
 
-**Yapay zekâ ile:** "Bana günlük haberleri oku" ve "internette ... araştır" (web araması yapan sağlayıcı gerekir), "Bana bir Instagram paylaşım metni hazırla" (metin ekranda gösterilir, panoya kopyalanır; paylaşma ayrıca onaylı), serbest sohbet ve sorular.
+**Yapay zekâ ile:** "Yarın saat 3'te diş hekimi randevumu takvime ekle" (her zaman onay sorar), "sahibinden.com'u aç" (uygulama içi tarayıcıda), "Bana günlük haberleri oku" ve "internette ... araştır" (web araması yapan sağlayıcı gerekir), "Bana bir Instagram paylaşım metni hazırla" (metin ekranda gösterilir, panoya kopyalanır; paylaşma ayrıca onaylı), serbest sohbet ve sorular.
 
 ### Erişilebilirlik (Seviye B)
 Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü açarsan çalışır; uygulama bunu gizlice açamaz. Ekran içeriği yalnızca istenen tek işlem anında okunur, saklanmaz, gönderilmez. Açıkken diğer uygulamaların üzerinde küçük bir mikrofon düğmesi görünür. Bazı uygulamalar (bankacılık vb.) bu kontrolü engelleyebilir. Google Play'de yayınlamak için erişilebilirlik API'si kullanım beyanı gerekir.
+
+### Ajan nasıl çalışır
+Her adımda yapay zekâ izinli araçlardan birini seçer (internette araştır, tarayıcıda ara/aç/oku, takvimi oku/ekle, hafızaya bak/kaydet, telefon durumu, takip edilen konular, izinli telefon eylemleri), araç **telefonda gerçekten** çalışır ve sonucu yapay zekâya geri verilir; en fazla 8 adım. Web sayfası ve arama metinleri yapay zekâya *veri* olarak verilir, içlerindeki talimatlara uyulmaz. Takvime yazma ve onay gerektiren telefon eylemleri yalnızca ONAYLA'ya basınca yapılır; reddedilen işlem tekrar denenmez. Tüm sağlayıcılarla çalışır (Gemini, OpenAI, Claude, yerel); internet araştırması için Gemini, OpenAI ya da Claude gerekir.
+
+### Masaüstü JARVIS'ten (main.py) alınanlar
+Kalıcı hafıza (kaydet / hatırla / ara), günlük açılış brifingi, arka planda konu takibi, geri alma, sistem durumu ve görsel analiz Android'e uyarlandı. Alınmayanlar: Windows'a özgü işlemler (alt süreçler, bilgisayar ayarları, ekran yakalama, ses cihazı seçimi) ve "proaktif mod" (kullanıcı sormadan konuşmak; habersiz işlem yapmama kuralı gereği).
 
 ---
 
@@ -178,6 +197,9 @@ Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü a
 - Yalnızca `http/https` bağlantılar açılır (`javascript:`, `intent:`, `file:` reddedilir).
 - Parolalar kaydedilmez/gönderilmez; parola alanlarına yazılmaz, kopyalanmaz. CAPTCHA/biyometri aşılmaya çalışılmaz.
 - Gerçekleşmeyen işlem yapılmış gibi söylenmez: yanıt, Android eyleminin gerçek sonucundan üretilir.
+- Takvime etkinlik ekleme her zaman onaylıdır; yalnızca yeni etkinlik eklenir, mevcutlar değiştirilmez/silinmez (geri al hariç: yalnızca asistanın eklediği etkinlik).
+- Uygulama içi tarayıcı: yalnızca http/https, Safe Browsing açık, dosya erişimi kapalı, kamera/mikrofon/konum istekleri reddedilir, `intent:` bağlantıları uygulama başlatmaz.
+- Hafıza cihazda saklanır, HAFIZA ekranında görülür ve silinir; parola, kart, IBAN ve kodlar kaydedilmez. "Yapay zekâ hafızayı kullansın" açıksa kısa özet seçili sağlayıcıya bağlam olarak gönderilir.
 - Kullanıcıdan habersiz işlem yapılmaz; mikrofon açıkken üstte kırmızı gösterge, arka planda bildirim görünür.
 
 ### İmzalama
@@ -193,9 +215,12 @@ Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü a
 | `RECORD_AUDIO` | Sesli komut (ilk KONUŞ'ta sorulur). Reddedilirse ekrandaki **ANDROID AYARLARI** ile *Ayarlar > Uygulamalar > SRİUS JARVIS > İzinler > Mikrofon* yolundan açılır. |
 | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE` | Sesli oturum / uyandırma sözcüğü hizmeti |
 | `POST_NOTIFICATIONS` | Hizmet bildirimi (Android 13+) |
-| `READ_CALENDAR` | Yalnızca "bugün ne yapmam gerekiyor" sorulduğunda; salt okuma |
+| `READ_CALENDAR` | TAKVİM bölmesi, ajanda soruları ve ajanın takvim aracı; ilk kullanımda sorulur |
+| `WRITE_CALENDAR` | Yalnızca onayladığın bir etkinlik eklenirken sorulur. Verilmezse takvim uygulamasının "yeni etkinlik" ekranı doldurularak açılır |
 | `INTERNET` | Yapay zekâ sağlayıcıları; bazı cihazlarda konuşma tanıma |
 | `SET_ALARM` | Saat uygulamasında alarm/zamanlayıcı hazırlama |
+
+"Kameraya bak" için kamera izni istenmez: telefonun kamera uygulaması açılır, fotoğrafı sen çekersin; fotoğraf küçültülüp yalnızca seçili yapay zekâ sağlayıcısına gönderilir ve önbellekten silinir. Konu takibi için arka plan işi (WorkManager) yalnızca en az bir konu eklendiğinde, günde bir kez ve internet varken çalışır.
 
 `CALL_PHONE`, SMS, rehber, depolama, "diğer uygulamaların üzerinde göster" izinleri kullanılmaz.
 
@@ -205,12 +230,12 @@ Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü a
 
 | Kapsam | Durum |
 |---|---|
-| 71 birim + entegrasyon testi (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
+| 95 birim + entegrasyon testi (önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
 | Android derlemesi, debug APK, `targetSdkVersion 36` ve imza doğrulaması | GitHub Actions'ta |
 | Avatar animasyonları (iki arayüz, tüm durumlar) | Masaüstü Chromium'da ekran görüntüsüyle kontrol edildi |
 
 **Gerçek cihazda TEST EDİLMEDİ** — aşağıdakilerin hepsi Android 16 telefonda doğrulanmalı:
-Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz sohbet ve araya girme (yankı ile yanlış tetikleme) · uyandırma sözcüğü (pil, tanıyıcı sesleri, cihaz içi Türkçe model) · ön plan hizmeti ve bildirim · uygulama açma/YouTube araması/galeri · erişilebilirlik işlemleri ve ekran görüntüsü · takvim okuma · üç bulut sağlayıcısının gerçek API'lerle çalışması (OpenAI Responses API web araması özellikle) · erişilebilirlik üstündeki mikrofon düğmesinin arka planda mikrofon alabilmesi.
+Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz sohbet ve araya girme (yankı ile yanlış tetikleme) · uyandırma sözcüğü (pil, tanıyıcı sesleri, cihaz içi Türkçe model) · ön plan hizmeti ve bildirim · uygulama açma/YouTube araması/galeri · erişilebilirlik işlemleri ve ekran görüntüsü · takvim okuma · üç bulut sağlayıcısının gerçek API'lerle çalışması (OpenAI Responses API web araması özellikle) · erişilebilirlik üstündeki mikrofon düğmesinin arka planda mikrofon alabilmesi · ajanın gerçek sağlayıcılarla çok adımlı görevleri · takvime yazma (hesaba göre yazılabilir takvim) · uygulama içi tarayıcıda sayfa okuma/özet · konu takibi bildirimi (WorkManager zamanlaması) · kameraya bak (kamera uygulaması ve görüntü analizi).
 
 ---
 
