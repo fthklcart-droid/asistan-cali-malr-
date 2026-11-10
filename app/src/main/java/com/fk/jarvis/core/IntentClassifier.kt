@@ -42,6 +42,54 @@ class IntentClassifier {
             "günlerden ne" in n || "hangi gündeyiz" in n || "bugün ayın kaçı" in n
         ) return p(CommandIntent.TELL_DATE)
 
+        // 4b) Geri alma (asistanın kendi yaptığı son değişiklik)
+        if (n == "geri al" || Regex("^(son )?(yaptığını|yaptığın şeyi|işlemi|değişikliği|eklediğini) geri al$").matches(n) || n == "bunu geri al") {
+            return p(CommandIntent.UNDO)
+        }
+        // 4c) Hafıza
+        Regex("^(?:bunu |şunu |lütfen )?(?:hatırla|aklında tut|unutma|not al)[:,]? (.{3,})$").find(n)?.let {
+            return p(CommandIntent.REMEMBER, args = mapOf("value" to it.groupValues[1].trim()))
+        }
+        Regex("^(.{3,}?) (?:olduğunu|diye) (?:hatırla|aklında tut|unutma)$").find(n)?.let {
+            return p(CommandIntent.REMEMBER, args = mapOf("value" to it.groupValues[1].trim()))
+        }
+        if (Regex("benim hakkımda (ne|neler) (biliyorsun|hatırlıyorsun)|(ne|neler) hatırlıyorsun|hafızanda (ne|neler) var|hafızamı göster").containsMatchIn(n)) {
+            return p(CommandIntent.RECALL, args = mapOf("query" to ""))
+        }
+        if (n == "hafızanı sil" || n == "her şeyi unut" || n == "hafızayı temizle") return p(CommandIntent.FORGET, args = mapOf("query" to "*"))
+        // 4d) Telefon durumu
+        if (Regex("(telefon|cihaz|sistem)(un|ın)? durumu|pil (durumu|kaç|yüzde)|şarj(ım)? (ne durumda|kaç|yüzde)|batarya (durumu|kaç)|depolama alanı|telefon ısındı mı").containsMatchIn(n)) {
+            return p(CommandIntent.DEVICE_STATUS)
+        }
+        // 4e) Konu takibi
+        if (Regex("^(takip listem|takip ettiğin konular|neleri takip ediyorsun|takip listesini göster)$").matches(n)) {
+            return p(CommandIntent.MONITOR, args = mapOf("action" to "list"))
+        }
+        Regex("^(.+?) (?:konusunu|konusundaki gelişmeleri|haberlerini|gelişmelerini) takip etmeyi bırak$|^(.+?) (?:konusunun |haberlerinin )?takibini (?:bırak|kaldır|durdur)$").find(s)?.let {
+            val t = (it.groupValues[1].ifEmpty { it.groupValues[2] }).trim()
+            return p(CommandIntent.MONITOR, args = mapOf("action" to "remove", "topic" to t))
+        }
+        Regex("^(.+?) (?:konusunu|konusundaki gelişmeleri|haberlerini|gelişmelerini) takip et$").find(s)?.let {
+            return p(CommandIntent.MONITOR, args = mapOf("action" to "add", "topic" to it.groupValues[1].trim()))
+        }
+        // 4f) Kamerayla bakma (görüntü analizi)
+        Regex("^(?:kameraya|kamerayla|kamerandan) bak(?: ve)?(?: (.{3,}))?$").find(n)?.let {
+            val q = it.groupValues[1].trim().ifEmpty { "Ne görüyorsun? Kısaca anlat." }
+            return p(CommandIntent.CAMERA_LOOK, args = mapOf("question" to q))
+        }
+        if (n == "ne görüyorsun" || n == "bu ne" || n == "bak bakalım bu ne") return p(CommandIntent.CAMERA_LOOK, args = mapOf("question" to "Ne görüyorsun? Kısaca anlat."))
+        // 4g) Günlük brifing (ajan: saat, takvim, hafıza, takip edilen konular, haberler)
+        if (Regex("^(günaydın|günlük brifing|brifing ver|brifing|güne başlayalım|günün özeti|sabah brifingi)( jarvis)?$").matches(n)) {
+            return p(CommandIntent.AGENT_TASK, args = mapOf("goal" to BRIEFING_GOAL), spoken = "")
+        }
+        // 5a) Ajan görevi: "ajan, ...", "görev: ..."
+        Regex("^(?:ajan|görev|ajana görev ver)[:,]? (.{3,})$").find(n)?.let {
+            return p(CommandIntent.AGENT_TASK, args = mapOf("goal" to it.groupValues[1].trim()), spoken = "")
+        }
+        // 5b') Belirli günün ajandası
+        Regex("^(yarın|öbür gün|pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar) (?:ne(ler)? var|ne(ler)? yapmam gerek\\w*|programım ne|planım ne)").find(n)?.let {
+            return p(CommandIntent.TODAY_AGENDA, args = mapOf("date" to it.groupValues[1]))
+        }
         // 5b) Ajanda (cihazdaki takvimden okunur)
         if (Regex("bugün ne(ler)? yapmam gerek|bugünkü (planım|programım|ajandam)|takvimimde (ne|neler) var|ajandam(da)? (ne|neler)|bugün (neler|ne) var").containsMatchIn(n)) {
             return p(CommandIntent.TODAY_AGENDA)
@@ -183,6 +231,10 @@ class IntentClassifier {
     }
 
     companion object {
+        const val BRIEFING_GOAL = "Günlük brifing hazırla: bugünün tarihi ve saati; calendar_list ile bugünkü etkinlikler; " +
+            "memory_recall ile hedefler ve projeler; web_research ile bugünün Türkiye ve dünyadan en önemli 3 haberi. " +
+            "Sonucu finish ile 6-8 cümlelik, sesli okunacak, sıcak ve kısa bir sabah brifingi olarak ver. Bilgi alınamayan bölümü kısaca belirt."
+
         private fun p(
             intent: CommandIntent,
             target: String? = null,

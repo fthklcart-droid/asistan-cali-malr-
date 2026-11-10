@@ -114,6 +114,32 @@ class GeminiAIService(
         return text.trim()
     }
 
+    override suspend fun vision(question: String, jpeg: ByteArray): String = withFallbacks {
+        val headers = headers()
+        val parts = JSONArray()
+            .put(JSONObject().put("inline_data", JSONObject().put("mime_type", "image/jpeg").put("data", java.util.Base64.getEncoder().encodeToString(jpeg))))
+            .put(JSONObject().put("text", question.take(500)))
+        val body = JSONObject()
+            .put("systemInstruction", textParts(AssistantPrompt.visionInstruction(assistantName())))
+            .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", parts)))
+            .put("generationConfig", JSONObject().put("maxOutputTokens", 2048).also { thinking(it) })
+            .toString()
+        val root = try { JSONObject(httpSupport.postJson(endpoint(), headers, body)) } catch (e: org.json.JSONException) { throw LlmException(LlmException.Kind.BAD_RESPONSE, "not json", e) }
+        extractText(root).trim().ifEmpty { throw LlmException(LlmException.Kind.BAD_RESPONSE, "empty") }
+    }
+
+    override suspend fun completeJson(system: String, user: String): String = withFallbacks {
+        val headers = headers()
+        val body = JSONObject()
+            .put("systemInstruction", textParts(system))
+            .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", user.take(MAX_JSON_INPUT))))))
+            .put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("maxOutputTokens", 4096).also { thinking(it) })
+            .toString()
+        val raw = httpSupport.postJson(endpoint(), headers, body)
+        val root = try { JSONObject(raw) } catch (e: Exception) { throw LlmException(LlmException.Kind.BAD_RESPONSE, "not json", e) }
+        extractText(root).trim().ifEmpty { throw LlmException(LlmException.Kind.BAD_RESPONSE, "empty") }
+    }
+
     /** İstek gövdesi. Yalnızca son [MAX_HISTORY] tur ve kısa bağlam gönderilir (veri minimizasyonu). */
     fun buildRequestBody(userText: String, history: List<ChatTurn>, context: Map<String, String>): String {
         val contents = JSONArray()
@@ -188,5 +214,6 @@ class GeminiAIService(
             LlmException.Kind.MODEL_NOT_FOUND, LlmException.Kind.SERVER, LlmException.Kind.TIMEOUT, LlmException.Kind.QUOTA,
         )
         const val MAX_HISTORY = 6
+        const val MAX_JSON_INPUT = 24_000
     }
 }

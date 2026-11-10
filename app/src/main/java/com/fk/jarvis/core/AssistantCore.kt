@@ -39,6 +39,12 @@ class AssistantCore(
     private val conversationMode: () -> Boolean = { false },
     private val bargeInEnabled: () -> Boolean = { false },
     private val bargeIn: BargeInMonitor = NoBargeIn,
+    /** Çok adımlı görevi ajana verir; ajan başlatılabildiyse true. */
+    private val startAgent: ((String) -> Boolean)? = null,
+    /** Kamerayı açıp çekilen fotoğrafı soruyla analiz eder; başlatılabildiyse true. Sonucu kendisi seslendirir. */
+    private val lookCamera: ((String) -> Boolean)? = null,
+    /** Yapay zekâya bağlam olarak eklenecek kısa hafıza özeti (hafıza kapalıysa null). */
+    private val memoryContext: () -> String? = { null },
 ) {
     private val _ui = MutableStateFlow(AssistantUi())
     val ui: StateFlow<AssistantUi> = _ui.asStateFlow()
@@ -212,10 +218,11 @@ class AssistantCore(
         }
     }
 
-    private fun contextInfo(): Map<String, String> = mapOf(
-        "zaman" to SimpleDateFormat("d MMMM yyyy EEEE HH:mm", TextNormalizer.TR).format(Date()),
-        "dil" to "tr-TR",
-    )
+    private fun contextInfo(): Map<String, String> = buildMap {
+        put("zaman", SimpleDateFormat("d MMMM yyyy EEEE HH:mm", TextNormalizer.TR).format(Date()))
+        put("dil", "tr-TR")
+        memoryContext()?.takeIf { it.isNotBlank() }?.let { put("kullanıcı hakkında hatırlananlar", it) }
+    }
 
     /** Öneriyi güvenlik politikasından geçirir. */
     fun process(p0: CommandProposal) {
@@ -316,6 +323,21 @@ class AssistantCore(
                 return
             }
             CommandIntent.RESEARCH -> { research(p); return }
+            CommandIntent.CAMERA_LOOK -> {
+                val q = p.arg("question") ?: "Ne görüyorsun? Kısaca anlat."
+                if (lookCamera?.invoke(q) == true) {
+                    _ui.update { it.copy(state = AssistantState.EXECUTING) }
+                    speak(p.spokenResponse.ifBlank { "Kamerayı açıyorum. Fotoğrafı çektiğinde bakacağım." }, endState = AssistantState.EXECUTING, autoListen = false)
+                } else speak("Kamerayla bakmak için uygulamanın ekranda açık olması gerekiyor.")
+                return
+            }
+            CommandIntent.AGENT_TASK -> {
+                val goal = p.arg("goal").orEmpty()
+                val started = startAgent?.invoke(goal) == true
+                speak(if (started) "Görevi ajana verdim. Adımları AJAN bölmesinde izleyebilirsin; onay gereken işlemlerde sana soracağım."
+                    else "Ajan şu an başlatılamadı. Bir görev zaten çalışıyor olabilir ya da yapay zekâ sağlayıcısı ayarlı değil.")
+                return
+            }
             CommandIntent.COPY_TEXT -> {
                 // "Bunu kopyala": metin verilmediyse asistanın son yanıtı kopyalanır.
                 if (p.arg("text") == null) {

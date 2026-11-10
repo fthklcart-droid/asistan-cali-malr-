@@ -176,6 +176,9 @@ class AndroidAppController(private val context: Context) {
         }
     }
 
+    /** Hazır bir intent'i yeni görev olarak başlatır (bulunamazsa ActivityNotFoundException fırlatır). */
+    fun startIntent(intent: Intent) { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+
     private fun start(intent: Intent, ok: String, fail: String): ActionResult = try {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         ActionResult(true, ok)

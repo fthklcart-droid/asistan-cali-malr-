@@ -90,6 +90,33 @@ class OpenAICompatibleService(
         }
     }
 
+    override suspend fun vision(question: String, jpeg: ByteArray): String {
+        val content = JSONArray()
+            .put(JSONObject().put("type", "text").put("text", question.take(500)))
+            .put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(jpeg))))
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", AssistantPrompt.visionInstruction(assistantName())))
+            .put(JSONObject().put("role", "user").put("content", content))
+        val raw = httpSupport.postJson("${base()}/chat/completions", headers(), JSONObject().put("model", model()).put("messages", messages).toString())
+        val root = try { JSONObject(raw) } catch (e: Exception) { throw LlmException(LlmException.Kind.BAD_RESPONSE, "not json", e) }
+        val msg = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message") ?: throw LlmException(LlmException.Kind.BAD_RESPONSE, "no choices")
+        return msg.optString("content", "").trim().ifEmpty { throw LlmException(LlmException.Kind.BAD_RESPONSE, "empty") }
+    }
+
+    override suspend fun completeJson(system: String, user: String): String {
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", system + "\nYanıtın yalnızca tek bir JSON nesnesi olmalı."))
+            .put(JSONObject().put("role", "user").put("content", user.take(GeminiAIService.MAX_JSON_INPUT)))
+        val body = JSONObject().put("model", model()).put("messages", messages)
+        if (mode == Mode.OPENAI) body.put("response_format", JSONObject().put("type", "json_object"))
+        val raw = httpSupport.postJson("${base()}/chat/completions", headers(), body.toString())
+        val root = try { JSONObject(raw) } catch (e: Exception) { throw LlmException(LlmException.Kind.BAD_RESPONSE, "not json", e) }
+        val msg = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+            ?: throw LlmException(LlmException.Kind.BAD_RESPONSE, "no choices")
+        if (msg.optString("refusal").let { it.isNotBlank() && it != "null" }) throw LlmException(LlmException.Kind.BLOCKED, "refusal")
+        return msg.optString("content", "").trim().ifEmpty { throw LlmException(LlmException.Kind.BAD_RESPONSE, "empty") }
+    }
+
     override suspend fun research(query: String, context: Map<String, String>): String {
         if (mode != Mode.OPENAI) throw LlmException(LlmException.Kind.UNSUPPORTED, "local")
         val body = JSONObject()

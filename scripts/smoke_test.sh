@@ -89,13 +89,19 @@ sleep 9   # avatar açılış animasyonu
 shot 02_asistan
 
 i=3
-for TAB in "SOHBET" "UYGULAMA" "ARAYÜZ" "SUNUCU" "SİSTEM" "AYARLAR"; do
-  if tap_text "$TAB" exact; then sleep 3; shot "$(printf '%02d' $i)_$TAB"; else FAIL=1; fi
+# Alt çubuktaki bölmeler
+for TAB in "AJAN" "TAKVİM" "WEB" "UYGULAMA" "MENÜ"; do
+  if tap_text "$TAB" exact; then sleep 4; shot "$(printf '%02d' $i)_$TAB"; else FAIL=1; fi
+  i=$((i + 1))
+done
+# MENÜ'den açılan bölümler
+for SUB in "SOHBET" "HAFIZA" "ARAYÜZ" "SUNUCU" "SİSTEM" "AYARLAR"; do
+  if tap_text "MENÜ" exact && sleep 2 && tap_text "$SUB" exact; then sleep 3; shot "$(printf '%02d' $i)_$SUB"; else FAIL=1; fi
   i=$((i + 1))
 done
 
 # SUNUCU'da Gemini kartı ve Live paneli; ardından asistana dön, mikrofon küresine dokun
-tap_text "SUNUCU" exact && sleep 2 && tap_text "GEMINI" exact && sleep 2
+tap_text "MENÜ" exact && sleep 2 && tap_text "SUNUCU" exact && sleep 2 && tap_text "GEMINI" exact && sleep 2
 adb shell input swipe 500 1700 500 300 400; sleep 1; adb shell input swipe 500 1700 500 300 400; sleep 2; shot "${i}_SUNUCU_live"; i=$((i + 1))
 tap_text "ASİSTAN" exact && sleep 2
 tap_text "Komut yaz" && sleep 1 && adb shell input text "saat%skac" && adb shell input keyevent KEYCODE_ENTER && sleep 5 && shot "${i}_komut"; i=$((i + 1))
@@ -117,7 +123,7 @@ fi
 # NEON en sonda ve bilgi amaçlı: emülatörün yazılımla çizimi (GPU yok) bu avatarda ekranı dondurabiliyor.
 # Sonuç testi başarısız saymaz; gerçek cihazda ayrıca denenmelidir.
 log "NEON (bilgi amaçlı, süre sınırlı)"
-( tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 15 && shot "${i}_neon" ) & NP=$!
+( tap_text "MENÜ" exact && sleep 2 && tap_text "ARAYÜZ" exact && sleep 2 && tap_text "NEON" exact && sleep 15 && shot "${i}_neon" ) & NP=$!
 ( sleep 120; kill $NP 2>/dev/null ) & KP=$!
 wait $NP 2>/dev/null && log "NEON ekran görüntüsü alındı" || log "NEON: emülatörde doğrulanamadı (zaman aşımı)"
 kill $KP 2>/dev/null || true

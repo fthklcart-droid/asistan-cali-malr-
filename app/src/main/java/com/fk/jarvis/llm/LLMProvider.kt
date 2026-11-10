@@ -13,7 +13,7 @@ class LlmException(
     /** Sunucunun döndürdüğü hata metni (kullanıcıya gösterilir; anahtar içermez). */
     val detail: String? = null,
 ) : Exception(message, cause) {
-    enum class Kind { NOT_CONFIGURED, NETWORK, TIMEOUT, QUOTA, AUTH, SERVER, BAD_RESPONSE, BLOCKED, UNSUPPORTED, INSECURE_URL, MODEL_NOT_FOUND, BAD_REQUEST }
+    enum class Kind { NOT_CONFIGURED, NETWORK, TIMEOUT, QUOTA, AUTH, SERVER, BAD_RESPONSE, BLOCKED, UNSUPPORTED, INSECURE_URL, MODEL_NOT_FOUND, BAD_REQUEST, NO_VISION }
 
     fun userMessage(): String = base() + (detail?.takeIf { it.isNotBlank() }?.let { " Sunucu yanıtı: ${it.take(220)}" } ?: "")
 
@@ -29,6 +29,7 @@ class LlmException(
         Kind.UNSUPPORTED -> "Seçili yapay zekâ sağlayıcısı internet araştırmasını desteklemiyor. Gemini, Claude veya OpenAI seçebilirsin."
         Kind.MODEL_NOT_FOUND -> "Seçili model bu anahtarla kullanılamıyor ya da adı hatalı. SUNUCU bölmesinden model adını değiştir."
         Kind.BAD_REQUEST -> "Yapay zekâ sunucusu isteği reddetti."
+        Kind.NO_VISION -> "Seçili yapay zekâ sağlayıcısıyla görüntü analizi yapamıyorum. SUNUCU bölmesinden Gemini ya da OpenAI seçebilirsin."
         Kind.INSECURE_URL -> "Sunucu adresi güvenli değil. Bulut sağlayıcılar için https kullanılmalı; http yalnızca yerel ağdaki model sunucusu için kabul edilir."
     }
 }
@@ -50,6 +51,19 @@ interface LLMProvider {
     @Throws(LlmException::class)
     suspend fun research(query: String, context: Map<String, String>): String =
         throw LlmException(LlmException.Kind.UNSUPPORTED, "research not supported")
+
+    /**
+     * Serbest yapılandırılmış görev (ajan adımı, sayfa özeti): sistem talimatı + tek kullanıcı mesajı,
+     * yanıt olarak JSON nesnesi içeren metin döner.
+     */
+    /** Görüntü analizi: JPEG fotoğraf + soru -> kısa, sesli okunacak Türkçe yanıt. */
+    @Throws(LlmException::class)
+    suspend fun vision(question: String, jpeg: ByteArray): String =
+        throw LlmException(LlmException.Kind.NO_VISION, "vision not supported")
+
+    @Throws(LlmException::class)
+    suspend fun completeJson(system: String, user: String): String =
+        throw LlmException(LlmException.Kind.NOT_CONFIGURED, "completeJson not supported")
 }
 
 /** Sağlayıcı yapılandırılmamışken kullanılan, hiç ağ çağrısı yapmayan sağlayıcı. */

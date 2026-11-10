@@ -46,6 +46,54 @@ object SafetyPolicy {
             CommandIntent.GO_HOME, CommandIntent.OPEN_CAMERA, CommandIntent.OPEN_GALLERY, CommandIntent.SCREENSHOT,
             CommandIntent.TODAY_AGENDA, CommandIntent.END_SESSION, CommandIntent.RESEARCH -> allowOrConfirm(p, modelWantsConfirm)
 
+            // Takvime yazmak kalıcı bir değişikliktir: her zaman onay istenir.
+            CommandIntent.CALENDAR_ADD -> {
+                val today = java.time.LocalDate.now()
+                val title = p.arg("title")?.trim()?.take(200) ?: return SafetyDecision.Reject("Etkinliğin adını anlayamadım.")
+                val date = com.fk.jarvis.apps.CalendarText.parseDate(p.arg("date") ?: "bugün", today)
+                    ?: return SafetyDecision.Reject("Etkinliğin tarihini anlayamadım. Örneğin \"yarın saat 15:00\" diyebilirsin.")
+                val timeRaw = p.arg("time")
+                val time = com.fk.jarvis.apps.CalendarText.parseTime(timeRaw)
+                if (timeRaw != null && time == null) return SafetyDecision.Reject("Etkinliğin saatini anlayamadım.")
+                val dur = (p.arg("duration_min")?.toDoubleOrNull()?.toInt() ?: 60).coerceIn(5, 24 * 60)
+                if (date.isBefore(today.minusDays(1)) || date.isAfter(today.plusYears(3))) return SafetyDecision.Reject("Bu tarih takvim için geçerli görünmüyor.")
+                val ev = com.fk.jarvis.apps.NewEvent(title, date, time, dur, p.arg("location")?.take(200))
+                val norm = p.copy(arguments = buildMap {
+                    put("title", title); put("date", date.toString()); put("duration_min", dur.toString())
+                    time?.let { put("time", "%02d:%02d".format(it.hour, it.minute)) }
+                    ev.location?.let { put("location", it) }
+                })
+                SafetyDecision.Confirm(norm, "Takvimine şu etkinliği ekleyeceğim: ${com.fk.jarvis.apps.CalendarText.describeNew(ev, today)}. Onaylıyor musun?")
+            }
+
+            CommandIntent.REMEMBER -> {
+                val v = (p.arg("value") ?: p.arg("text"))?.trim() ?: return SafetyDecision.Reject("Neyi hatırlamamı istediğini anlayamadım.")
+                if (com.fk.jarvis.data.MemoryStore.isSecret(v)) SafetyDecision.Reject("Parola, kart numarası ya da güvenlik kodu gibi gizli bilgileri kaydetmiyorum.")
+                else if (v.length > 600) SafetyDecision.Reject("Hatırlanacak bilgi çok uzun.")
+                else allowOrConfirm(p.copy(arguments = p.arguments + ("value" to v)), modelWantsConfirm)
+            }
+            CommandIntent.RECALL, CommandIntent.UNDO, CommandIntent.DEVICE_STATUS -> allowOrConfirm(p, modelWantsConfirm)
+            CommandIntent.FORGET -> {
+                val q = p.arg("query")?.trim() ?: return SafetyDecision.Reject("Neyi unutmamı istediğini anlayamadım.")
+                if (q == "*" || q == "hepsi" || q == "her şey") SafetyDecision.Confirm(p.copy(arguments = mapOf("query" to "*")), "Hafızandaki tüm bilgileri sileceğim. Onaylıyor musun?")
+                else SafetyDecision.Confirm(p, "Hafızandan \"$q\" ile ilgili bilgileri sileceğim. Onaylıyor musun?")
+            }
+            CommandIntent.MONITOR -> {
+                val action = (p.arg("action") ?: "list").lowercase()
+                if (action !in setOf("add", "remove", "list")) return SafetyDecision.Reject("Takip işlemini anlayamadım.")
+                if (action != "list" && p.arg("topic") == null) return SafetyDecision.Reject("Hangi konuyu kastettiğini anlayamadım.")
+                allowOrConfirm(p.copy(arguments = p.arguments + ("action" to action)), modelWantsConfirm)
+            }
+            CommandIntent.CAMERA_LOOK -> {
+                val q = p.arg("question") ?: "Ne görüyorsun? Kısaca anlat."
+                if (q.length > 500) SafetyDecision.Reject("Soru çok uzun.") else allowOrConfirm(p.copy(arguments = p.arguments + ("question" to q)), modelWantsConfirm)
+            }
+
+            CommandIntent.AGENT_TASK -> {
+                val g = p.arg("goal")?.trim() ?: return SafetyDecision.Reject("Ajana hangi görevi vereceğimi anlayamadım.")
+                if (g.length > 1500) SafetyDecision.Reject("Görev tanımı çok uzun.") else allowOrConfirm(p, modelWantsConfirm)
+            }
+
             CommandIntent.CLOSE_APP -> {
                 if (p.arg("app_name") == null) SafetyDecision.Reject("Hangi uygulamayı kapatmamı istediğini anlayamadım.")
                 else allowOrConfirm(p, modelWantsConfirm)

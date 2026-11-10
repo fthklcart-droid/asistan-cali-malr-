@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- "Bugün ne yapmam gerekiyor?" — yalnızca kullanıcı ajandasını sorduğunda istenir, yalnızca okuma -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Takvime etkinlik ekleme: yalnızca kullanıcı onayladığı bir etkinlik eklenirken istenir -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- Saat uygulamasında alarm/zamanlayıcı hazırlama (normal izin) -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
@@ -31,6 +33,13 @@
             <action android:name="android.intent.action.SEARCH" />
         </intent>
         <package android:name="com.google.android.youtube" />
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.INSERT" />
+            <data android:mimeType="vnd.android.cursor.dir/event" />
+        </intent>
     </queries>
 
     <application
@@ -54,6 +63,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- "Kameraya bak": kamera uygulamasının çektiği fotoğraf uygulamanın önbelleğine yazılır -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Sesli oturum ve "JARVIS" uyandırma sözcüğü (bildirimli ön plan hizmeti) -->
         <service

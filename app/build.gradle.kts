@@ -134,6 +134,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Takip edilen konular için günlük arka plan kontrolü
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     // Claude sağlayıcısı: resmi Anthropic Java SDK'sı
     implementation("com.anthropic:anthropic-java:3.3.0")
 

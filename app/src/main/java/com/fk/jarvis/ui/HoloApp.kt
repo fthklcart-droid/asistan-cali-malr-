@@ -141,15 +141,25 @@ interface HoloActions {
     fun launchApp(info: AppInfo)
 }
 
-private enum class Tab(val label: String) {
-    ASSISTANT("ASİSTAN"), CHAT("SOHBET"), APPS("UYGULAMA"), UI("ARAYÜZ"), SERVER("SUNUCU"), SYSTEM("SİSTEM"), SETTINGS("AYARLAR")
+private enum class Tab(val label: String, val inBar: Boolean) {
+    ASSISTANT("ASİSTAN", true), AGENT("AJAN", true), CALENDAR("TAKVİM", true), WEB("WEB", true), APPS("UYGULAMA", true), MENU("MENÜ", true),
+    CHAT("SOHBET", false), MEMORY("HAFIZA", false), UI("ARAYÜZ", false), SERVER("SUNUCU", false), SYSTEM("SİSTEM", false), SETTINGS("AYARLAR", false),
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
-fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
+fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions, x: HoloExtras) {
     var tabName by rememberSaveable { mutableStateOf(Tab.ASSISTANT.name) }
     val tab = Tab.valueOf(tabName)
+    // Asistan/ajan bir sayfa açtığında WEB, sesle ajan görevi verildiğinde AJAN bölmesine geçilir.
+    LaunchedEffect(Unit) { x.browser.showRequests.collect { tabName = Tab.WEB.name } }
+    val agentUi by x.agent.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(agentUi.runId) { if (agentUi.runId > 0 && agentUi.fromVoice && agentUi.running) tabName = Tab.AGENT.name }
+    // Asistan bir onay ya da seçim isterse soruyu görebilmek için ASİSTAN bölmesine dönülür.
+    LaunchedEffect(s.ui.confirmQuestion) { if (s.ui.confirmQuestion != null && tab != Tab.ASSISTANT) tabName = Tab.ASSISTANT.name }
+    androidx.activity.compose.BackHandler(enabled = tab != Tab.ASSISTANT) {
+        tabName = if (tab.inBar) Tab.ASSISTANT.name else Tab.MENU.name
+    }
     // Geçiş yönü: sağdaki bölmeye geçerken içerik sağdan, soldakine geçerken soldan döner.
     var dir by remember { androidx.compose.runtime.mutableIntStateOf(1) }
     LaunchedEffect(tab) {
@@ -193,6 +203,11 @@ fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
                     }) {
                     when (t) {
                         Tab.ASSISTANT -> Box(Modifier.fillMaxSize())
+                        Tab.AGENT -> Overlay { AgentScreen(x) }
+                        Tab.CALENDAR -> Overlay { CalendarScreen(x) }
+                        Tab.WEB -> Overlay { BrowserScreen(x) }
+                        Tab.MENU -> Overlay { MenuScreen { id -> dir = 1; tabName = id } }
+                        Tab.MEMORY -> Overlay { MemoryScreen(s, a, x) }
                         Tab.CHAT -> Overlay { HistoryScreen(s, a) }
                         Tab.APPS -> Overlay { AppsScreen(s, a) }
                         Tab.UI -> Overlay { InterfaceScreen(s, a) }
@@ -211,9 +226,11 @@ fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions) {
         s.ui.permissionRequest?.let { perm ->
             DisclosureDialog(
                 title = "Takvim izni",
-                text = "\"Bugün ne yapmam gerekiyor?\" sorusunu yanıtlayabilmem için takvimindeki BUGÜNÜN etkinliklerini " +
-                    "okumam gerekiyor. Takvim yalnızca okunur, değiştirilmez; etkinlik bilgileri telefonundan çıkmaz, " +
-                    "yapay zekâ sağlayıcısına gönderilmez. Bir sonraki ekranda Android izin isteyecek.",
+                text = if (perm == android.Manifest.permission.WRITE_CALENDAR)
+                    "Onayladığın etkinliği takvimine yazabilmem için takvim yazma iznine ihtiyacım var. Yalnızca senin onayladığın " +
+                        "etkinlikler eklenir; mevcut etkinliklerin değiştirilmez ya da silinmez. Bir sonraki ekranda Android izin isteyecek."
+                else "Ajandanı yanıtlayabilmem için takvimindeki etkinlikleri okumam gerekiyor. Takvim yalnızca okunur, değiştirilmez; " +
+                    "etkinlik bilgileri telefonundan çıkmaz. Bir sonraki ekranda Android izin isteyecek.",
                 confirm = "DEVAM",
                 onConfirm = { a.grantPendingPermission(perm) },
                 onDismiss = { a.denyPendingPermission() },
@@ -240,8 +257,8 @@ private fun TabBar(selected: Tab, onSelect: (Tab) -> Unit) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, JarvisColors.violet.copy(alpha = 0.6f), Color.Transparent))))
         // 7 bölmenin hepsi ekrana sığar (kaydırma gerekmez).
         Row(Modifier.fillMaxWidth().height(54.dp)) {
-            Tab.entries.forEach { t ->
-                val on = t == selected
+            Tab.entries.filter { it.inBar }.forEach { t ->
+                val on = t == selected || (t == Tab.MENU && !selected.inBar)
                 // Seçili bölme: yaylı genişleyen gösterge, renk geçişi, hafif büyüme ve alttan parlama.
                 val spring = androidx.compose.animation.core.spring<androidx.compose.ui.unit.Dp>(dampingRatio = 0.55f, stiffness = 420f)
                 val barW by androidx.compose.animation.core.animateDpAsState(if (on) 30.dp else 6.dp, spring, label = "bar")

@@ -86,6 +86,13 @@ class ClaudeAIService(
         }
     }
 
+    override suspend fun completeJson(system: String, user: String): String {
+        val c = client()
+        val b = baseParams(system + "\nYanıtın yalnızca tek bir JSON nesnesi olmalı.").addUserMessage(user.take(GeminiAIService.MAX_JSON_INPUT))
+        val msg = call { c.beta().messages().create(b.build()) }
+        return textOf(msg).trim().ifEmpty { throw LlmException(LlmException.Kind.BAD_RESPONSE, "empty") }
+    }
+
     override suspend fun research(query: String, context: Map<String, String>): String {
         val c = client()
         val b = baseParams(AssistantPrompt.researchInstruction(assistantName()))
