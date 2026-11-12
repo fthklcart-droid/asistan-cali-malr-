@@ -8,7 +8,59 @@ import org.json.JSONObject
 data class ToolSpec(val name: String, val label: String, val params: String, val description: String, val sensitive: Boolean = false)
 
 /** Modelin bir adımda seçtiği eylem. */
-data class AgentAction(val thought: String, val tool: String, val args: JSONObject, val say: String)
+data class AgentAction(val thought: String, val tool: String, val args: JSONObject, val say: String, val plan: List<String> = emptyList())
+
+/**
+ * Ajan profili: hangi araçları kullanabileceği, adım bütçesi ve çalışma talimatı.
+ * (Mark LVII'deki agents klasöründeki .md dosyalarının karşılığı; yeni profil eklemek için listeye bir kayıt eklemek yeterli.)
+ */
+data class AgentProfile(
+    val id: String,
+    val label: String,
+    val description: String,
+    /** null: tüm araçlar. */
+    val tools: Set<String>?,
+    val maxSteps: Int,
+    val instructions: String,
+)
+
+object AgentProfiles {
+    val GENERAL = AgentProfile(
+        "genel", "GENEL", "Günlük işler: takvim, görevler, telefon eylemleri, kısa araştırma", null, 10,
+        "Kullanıcının günlük işlerini en az adımla bitir. Gerektiğinde takvim, görev, not, hafıza ve telefon araçlarını birleştir.",
+    )
+    val RESEARCHER = AgentProfile(
+        "arastirmaci", "ARAŞTIRMACI", "Derin araştırma: kaynakları okur, alıntıları doğrular, kaynaklı rapor yazar",
+        setOf("web_research", "browser_search", "browser_open", "browser_read", "verify_quote", "note_save", "memory_recall"), 14,
+        "Derin araştırma yap. Önce yanıtlanacak 2-4 alt soruyu planla. Arama sonuçlarıyla yetinme: en az iki kaynağı browser_open ile aç ve metnini oku. " +
+            "Rapora koyacağın her doğrudan alıntıyı ve kritik sayıyı verify_quote ile okuduğun sayfaya karşı doğrula; doğrulanamayanı kullanma ya da 'doğrulanamadı' diye belirt. " +
+            "Sonuç raporu: kısa özet, bulgular, belirsiz kalanlar ve kaynak adları (site adıyla). Rapor finish.answer içinde en fazla 12 cümle olabilir.",
+    )
+    val PLANNER = AgentProfile(
+        "planlayici", "PLANLAYICI", "Gün/hafta planı: takvim + görevleri birleştirir, zaman blokları önerir",
+        setOf("calendar_list", "calendar_add", "tasks_list", "task_add", "task_done", "routine_add", "routines_list", "memory_recall", "notes_search", "device_status"), 10,
+        "Planlama yap. Önce calendar_list ve tasks_list ile mevcut durumu oku. Çakışmaları, gecikmiş ve yüksek öncelikli görevleri belirle. " +
+            "Gerçekçi bir plan öner: en önemli 3 iş, boş zaman dilimlerine yerleştirilmiş bloklar, mola. Takvime ya da göreve yazmayı yalnızca kullanıcı hedefte istediyse yap (onay sorulur).",
+    )
+    val BUSINESS = AgentProfile(
+        "is", "İŞ ASİSTANI", "İş: e-posta/teklif/rapor taslağı, toplantı hazırlığı, müşteri ve rakip araştırması", null, 12,
+        "Profesyonel iş asistanısın. Taslaklar (e-posta, teklif, rapor, toplantı gündemi) net, kibar ve kısa olsun; hazır metni phone_action draft_text ile kullanıcıya ver, gönderme. " +
+            "Toplantı hazırlığında takvimi, ilgili notları ve hafızayı oku. Şirket/kişi araştırmasında kaynak adı ver. Ortaya çıkan yapılacakları task_add ile görev olarak öner.",
+    )
+    val all = listOf(GENERAL, RESEARCHER, PLANNER, BUSINESS)
+    fun byId(id: String?) = all.firstOrNull { it.id == id } ?: GENERAL
+
+    /** Hedef metninden uygun profili seçer (kullanıcı elle seçmediyse). */
+    fun pick(goal: String): AgentProfile {
+        val g = goal.lowercase(java.util.Locale.forLanguageTag("tr-TR"))
+        return when {
+            Regex("derin araştır|ayrıntılı araştır|detaylı araştır|rapor hazırla|karşılaştır|kaynak").containsMatchIn(g) -> RESEARCHER
+            Regex("e-?posta|mail|teklif|toplantı|müşteri|sunum|fatura|rakip|iş planı|gündem").containsMatchIn(g) -> BUSINESS
+            Regex("planla|haftamı|günümü|program|zaman blo|öncelik").containsMatchIn(g) -> PLANNER
+            else -> GENERAL
+        }
+    }
+}
 
 /** Aracın çalışma sonucu. [observation] modele geri verilir. */
 data class ToolOutcome(val ok: Boolean, val observation: String)
@@ -49,16 +101,25 @@ class AgentRunner(
     private val tools: AgentTools,
     private val assistantName: () -> String = { "JARVIS" },
     private val now: () -> String = { java.text.SimpleDateFormat("yyyy-MM-dd EEEE HH:mm", java.util.Locale.forLanguageTag("tr-TR")).format(java.util.Date()) },
-    private val maxSteps: Int = MAX_STEPS,
+    /** null: profilin adım bütçesi kullanılır. */
+    private val maxStepsOverride: Int? = null,
     /** Kullanıcı hakkında kısa hafıza özeti (kapalıysa null). */
     private val memoryHint: () -> String? = { null },
 ) {
     private data class Done(val action: AgentAction, val outcome: ToolOutcome)
 
-    suspend fun run(goal: String, confirm: suspend (String) -> Boolean, onStep: (AgentStep) -> Unit): AgentResult {
+    suspend fun run(
+        goal: String,
+        confirm: suspend (String) -> Boolean,
+        profile: AgentProfile = AgentProfiles.GENERAL,
+        onPlan: (List<String>) -> Unit = {},
+        onStep: (AgentStep) -> Unit,
+    ): AgentResult {
+        val maxSteps = maxStepsOverride ?: profile.maxSteps
+        val specs = tools.specs.filter { profile.tools == null || it.name in profile.tools }
         val provider = llm()
         if (!provider.isConfigured) return AgentResult.Failed("Ajan için bir yapay zekâ sağlayıcısı gerekiyor. SUNUCU bölmesinden sağlayıcı ve API anahtarı ekleyebilirsin.")
-        val system = systemPrompt(assistantName(), now(), tools.specs) +
+        val system = systemPrompt(assistantName(), now(), specs, profile) +
             (memoryHint()?.takeIf { it.isNotBlank() }?.let { "\n\nKULLANICI HAKKINDA HATIRLANANLAR (veri): $it" } ?: "")
         val done = mutableListOf<Done>()
         var badJson = 0
@@ -75,11 +136,12 @@ class AgentRunner(
                 continue
             }
             badJson = 0
+            if (action.plan.isNotEmpty() && done.none { it.action.tool != "invalid" }) onPlan(action.plan)
             if (action.tool == FINISH) {
                 val answer = action.args.optString("answer").ifBlank { action.say }.ifBlank { "Görev tamamlandı." }
                 return AgentResult.Finished(answer.trim())
             }
-            val spec = tools.specs.firstOrNull { it.name == action.tool }
+            val spec = specs.firstOrNull { it.name == action.tool }
             val step = AgentStep(i + 1, action.tool, spec?.label ?: action.tool, action.say, action.thought, argsText(action.args), AgentStep.Status.RUNNING)
             onStep(step)
             val outcome = if (spec == null) {
@@ -112,14 +174,15 @@ class AgentRunner(
     }
 
     companion object {
-        const val MAX_STEPS = 8
+        const val MAX_STEPS = 10
         const val FINISH = "finish"
         /** Kullanıcının reddettiği işlemlerin gözlemi bu önekle başlar. */
         const val DECLINED = "REDDEDİLDİ"
         private const val OBS_LIMIT = 3500
 
-        fun systemPrompt(name: String, now: String, specs: List<ToolSpec>): String = buildString {
+        fun systemPrompt(name: String, now: String, specs: List<ToolSpec>, profile: AgentProfile = AgentProfiles.GENERAL): String = buildString {
             appendLine("Sen \"$name\" adlı Türkçe kişisel asistanın görev ajanısın. Kullanıcının verdiği hedefi Android telefonda araçlar kullanarak adım adım tamamlarsın.")
+            appendLine("PROFİL: ${profile.label}. ${profile.instructions}")
             appendLine("Şu an: $now. Saat dilimi telefonunki.")
             appendLine()
             appendLine("ARAÇLAR (yalnızca bunları kullanabilirsin):")
@@ -128,6 +191,8 @@ class AgentRunner(
             appendLine()
             appendLine("HER YANITIN yalnızca şu biçimde TEK bir JSON nesnesi olmalı:")
             appendLine("{\"thought\": \"kısa gerekçe\", \"tool\": \"araç adı\", \"args\": {...}, \"say\": \"kullanıcıya gösterilecek kısa durum cümlesi\"}")
+            appendLine("İLK yanıtında ayrıca \"plan\": [\"adım 1\", \"adım 2\", ...] alanını ekle: hedefe götüren 2-6 kısa adım. Sonraki yanıtlarda plan alanını yazma.")
+            appendLine("Araç sonuçları BAŞARILI / BAŞARISIZ / DOĞRULANAMADI diye gelir: doğrulanamayan bir işi kullanıcıya 'yapıldı' diye söyleme, 'istek gönderildi ama doğrulayamadım' de.")
             appendLine()
             appendLine("KURALLAR:")
             appendLine("- Her adımda tek araç seç. Gözlemi bekle, sonra devam et. Gereksiz adım atma; hedefe ulaşınca hemen $FINISH kullan.")
@@ -164,7 +229,8 @@ class AgentRunner(
             val tool = o.optString("tool").trim().lowercase()
             if (tool.isEmpty()) return null
             val args = o.optJSONObject("args") ?: JSONObject()
-            return AgentAction(o.optString("thought").take(400), tool, args, o.optString("say").take(300))
+            val plan = o.optJSONArray("plan")?.let { a -> (0 until minOf(a.length(), 8)).map { a.optString(it).take(160) }.filter { it.isNotBlank() } } ?: emptyList()
+            return AgentAction(o.optString("thought").take(400), tool, args, o.optString("say").take(300), plan)
         }
 
         fun argsText(args: JSONObject): String {

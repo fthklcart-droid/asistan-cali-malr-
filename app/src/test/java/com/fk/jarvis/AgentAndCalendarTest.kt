@@ -146,7 +146,7 @@ class AgentAndCalendarTest {
 
     @Test fun stopsAtStepLimitAndOnProviderError() = runBlocking {
         val loop = ScriptedLlm(MutableList(10) { """{"tool":"calendar_list","args":{"days":$it}}""" })
-        val r = AgentRunner({ loop }, FakeTools(true), maxSteps = 3).run("x", { true }) {}
+        val r = AgentRunner({ loop }, FakeTools(true), maxStepsOverride = 3).run("x", { true }) {}
         assertTrue(r is AgentResult.Failed && r.reason.contains("Adım sınırına"))
         val failing = object : LLMProvider {
             override val id = "f"; override val displayName = "f"; override val isConfigured = true

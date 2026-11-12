@@ -89,6 +89,60 @@ object SafetyPolicy {
                 if (q.length > 500) SafetyDecision.Reject("Soru çok uzun.") else allowOrConfirm(p.copy(arguments = p.arguments + ("question" to q)), modelWantsConfirm)
             }
 
+            CommandIntent.TASK_ADD -> {
+                val title = p.arg("title")?.trim() ?: return SafetyDecision.Reject("Görevin adını anlayamadım.")
+                val today = java.time.LocalDate.now()
+                val dateRaw = p.arg("date")
+                val date = com.fk.jarvis.apps.CalendarText.parseDate(dateRaw, today)
+                if (dateRaw != null && date == null) return SafetyDecision.Reject("Görevin tarihini anlayamadım.")
+                val time = com.fk.jarvis.apps.CalendarText.parseTime(p.arg("time"))
+                val norm = p.copy(arguments = buildMap {
+                    put("title", title.take(200))
+                    (date ?: if (time != null) today else null)?.let { put("date", it.toString()) }
+                    time?.let { put("time", "%02d:%02d".format(it.hour, it.minute)) }
+                    put("priority", com.fk.jarvis.data.TaskStore.parsePriority(p.arg("priority")).toString())
+                    p.arg("project")?.let { put("project", it.take(40)) }
+                })
+                allowOrConfirm(norm, modelWantsConfirm)
+            }
+            CommandIntent.TASK_LIST, CommandIntent.NOTE_SEARCH, CommandIntent.ROUTINE_LIST -> allowOrConfirm(p, modelWantsConfirm)
+            CommandIntent.TASK_DONE -> {
+                if (p.arg("query") == null) SafetyDecision.Reject("Hangi görevi tamamladığını anlayamadım.") else allowOrConfirm(p, modelWantsConfirm)
+            }
+            CommandIntent.NOTE_ADD -> {
+                val t = p.arg("text")?.trim() ?: return SafetyDecision.Reject("Not alınacak metni anlayamadım.")
+                if (com.fk.jarvis.data.MemoryStore.isSecret(t)) SafetyDecision.Reject("Parola, kart numarası ya da güvenlik kodu gibi gizli bilgileri not almıyorum.")
+                else allowOrConfirm(p, modelWantsConfirm)
+            }
+            CommandIntent.ROUTINE_ADD -> {
+                val text = (p.arg("text") ?: p.arg("title"))?.trim() ?: return SafetyDecision.Reject("Neyi hatırlatacağımı anlayamadım.")
+                val time = com.fk.jarvis.apps.CalendarText.parseTime(p.arg("time")) ?: return SafetyDecision.Reject("Saatini anlayamadım. Örneğin \"yarın saat 9'da\" diyebilirsin.")
+                val (kind, days) = com.fk.jarvis.data.RoutineStore.parseRepeat(p.arg("repeat"))
+                val now = java.time.LocalDateTime.now()
+                val date = if (kind == com.fk.jarvis.data.Routine.Kind.ONCE) {
+                    val raw = p.arg("date")
+                    val d = com.fk.jarvis.apps.CalendarText.parseDate(raw, now.toLocalDate())
+                    if (raw != null && d == null) return SafetyDecision.Reject("Tarihini anlayamadım.")
+                    // Tarih söylenmediyse ve saat bugün geçtiyse yarın.
+                    d ?: if (now.toLocalTime() < time) now.toLocalDate() else now.toLocalDate().plusDays(1)
+                } else null
+                val action = when (p.arg("action")?.lowercase()) { "say" -> "say"; "task" -> "task"; else -> "remind" }
+                val norm = p.copy(arguments = buildMap {
+                    put("text", text.take(1500)); put("title", (p.arg("title") ?: text).take(120))
+                    put("time", "%02d:%02d".format(time.hour, time.minute)); put("kind", kind.name)
+                    date?.let { put("date", it.toString()) }
+                    if (days.isNotEmpty()) put("days", days.sorted().joinToString(","))
+                    put("action", action)
+                })
+                // Kendiliğinden ajan görevi başlatan rutin her zaman onay ister.
+                if (action == "task") SafetyDecision.Confirm(norm, "Belirlenen zamanda ajana şu görevi verecek bir rutin kuracağım: \"${text.take(200)}\". Onaylıyor musun?")
+                else allowOrConfirm(norm, modelWantsConfirm)
+            }
+            CommandIntent.ROUTINE_REMOVE -> {
+                val q = p.arg("query") ?: return SafetyDecision.Reject("Hangi rutini kaldıracağımı anlayamadım.")
+                SafetyDecision.Confirm(p, "\"$q\" ile ilgili rutini ya da hatırlatıcıyı sileceğim. Onaylıyor musun?")
+            }
+
             CommandIntent.AGENT_TASK -> {
                 val g = p.arg("goal")?.trim() ?: return SafetyDecision.Reject("Ajana hangi görevi vereceğimi anlayamadım.")
                 if (g.length > 1500) SafetyDecision.Reject("Görev tanımı çok uzun.") else allowOrConfirm(p, modelWantsConfirm)

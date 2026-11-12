@@ -47,7 +47,7 @@ class IntentClassifier {
             return p(CommandIntent.UNDO)
         }
         // 4c) Hafıza
-        Regex("^(?:bunu |şunu |lütfen )?(?:hatırla|aklında tut|unutma|not al)[:,]? (.{3,})$").find(n)?.let {
+        Regex("^(?:bunu |şunu |lütfen )?(?:hatırla|aklında tut|unutma)[:,]? (.{3,})$").find(n)?.let {
             return p(CommandIntent.REMEMBER, args = mapOf("value" to it.groupValues[1].trim()))
         }
         Regex("^(.{3,}?) (?:olduğunu|diye) (?:hatırla|aklında tut|unutma)$").find(n)?.let {
@@ -57,6 +57,38 @@ class IntentClassifier {
             return p(CommandIntent.RECALL, args = mapOf("query" to ""))
         }
         if (n == "hafızanı sil" || n == "her şeyi unut" || n == "hafızayı temizle") return p(CommandIntent.FORGET, args = mapOf("query" to "*"))
+        // 4c') Görevler, notlar, hatırlatıcılar
+        Regex("^(?:yeni )?görev(?: ekle| oluştur)?[:,] (.{2,})$|^(?:görev ekle|yapılacaklara ekle|yapılacaklar listesine ekle) (.{2,})$").find(n)?.let {
+            return p(CommandIntent.TASK_ADD, args = taskArgs(it.groupValues[1].ifEmpty { it.groupValues[2] }))
+        }
+        Regex("^(.{2,}?) (?:görevini|görevi|işini) (?:ekle|oluştur)$").find(s)?.let { return p(CommandIntent.TASK_ADD, args = taskArgs(it.groupValues[1])) }
+        if (Regex("^(görevlerim|yapılacaklarım|yapılacaklar listem|açık görevlerim)( neler| ne)?$|^(bugünkü|bugün) (görevlerim|yapılacaklarım)( neler| ne)?$|^görevlerimi (oku|göster|say)$").matches(n)) {
+            return p(CommandIntent.TASK_LIST, args = if (n.startsWith("bugün")) mapOf("date" to "bugün") else emptyMap())
+        }
+        Regex("^(.{2,}?) (?:görevini |görevi |işini )?(?:tamamla|tamamlandı|tamamladım|bitti|bitirdim|yapıldı|hallettim)$").find(s)?.let {
+            if ("görev" in n || "iş" in n.split(' ').map { w -> w.take(2) }) return p(CommandIntent.TASK_DONE, args = mapOf("query" to it.groupValues[1].removeSuffix(" görevini").removeSuffix(" görevi").trim()))
+        }
+        Regex("^not(?: al| ekle| et)?[:,]? (.{3,})$").find(n)?.let { return p(CommandIntent.NOTE_ADD, args = mapOf("text" to it.groupValues[1].trim())) }
+        Regex("^notlarımda (.{2,}?) (?:ara|bul|var mı)$").find(n)?.let { return p(CommandIntent.NOTE_SEARCH, args = mapOf("query" to it.groupValues[1].trim())) }
+        if (n == "notlarımı oku" || n == "notlarım" || n == "son notlarım") return p(CommandIntent.NOTE_SEARCH, args = mapOf("query" to ""))
+        if (Regex("^(rutinlerim|hatırlatıcılarım|rutinlerimi göster|hatırlatıcılarımı göster|kurulu hatırlatıcılar)( neler)?$").matches(n)) return p(CommandIntent.ROUTINE_LIST)
+        if ("hatırlat" in n) {
+            parseClock(s)?.let { (h, m) ->
+                val text = n.replace(Regex("\\b(bana |lütfen )?hatırlat(ır mısın|sana|ırsan)?\\b"), " ")
+                    .replace(Regex("\\b(her gün|hafta içi|hafta sonu|yarın|bugün|öbür gün|sabah|akşam|öğleden sonra)\\b"), " ")
+                    .replace(Regex("saat \\d{1,2}([:.]\\d{2})?( buçuk(ta)?)?('?(de|da|te|ta))?|\\b\\d{1,2}[:.]\\d{2}('?(de|da|te|ta))?"), " ")
+                    .replace(Regex("\\s+"), " ").trim().removeSuffix("'i").removeSuffix("'ı").removeSuffix("'u").removeSuffix("'ü").ifBlank { "Hatırlatma" }
+                return p(CommandIntent.ROUTINE_ADD, args = buildMap {
+                    put("text", text); put("time", "%02d:%02d".format(h, m)); put("action", "remind")
+                    when {
+                        "her gün" in n -> put("repeat", "her gün")
+                        "hafta içi" in n -> put("repeat", "hafta içi")
+                        "öbür gün" in n -> put("date", "öbür gün")
+                        "yarın" in n -> put("date", "yarın")
+                    }
+                })
+            }
+        }
         // 4d) Telefon durumu
         if (Regex("(telefon|cihaz|sistem)(un|ın)? durumu|pil (durumu|kaç|yüzde)|şarj(ım)? (ne durumda|kaç|yüzde)|batarya (durumu|kaç)|depolama alanı|telefon ısındı mı").containsMatchIn(n)) {
             return p(CommandIntent.DEVICE_STATUS)
@@ -234,6 +266,14 @@ class IntentClassifier {
         const val BRIEFING_GOAL = "Günlük brifing hazırla: bugünün tarihi ve saati; calendar_list ile bugünkü etkinlikler; " +
             "memory_recall ile hedefler ve projeler; web_research ile bugünün Türkiye ve dünyadan en önemli 3 haberi. " +
             "Sonucu finish ile 6-8 cümlelik, sesli okunacak, sıcak ve kısa bir sabah brifingi olarak ver. Bilgi alınamayan bölümü kısaca belirt."
+
+        /** "yarın raporu gönder" -> başlık + tarih; "önemli" -> yüksek öncelik. */
+        private fun taskArgs(raw: String): Map<String, String> = buildMap {
+            var t = raw.trim()
+            Regex("^(bugün|yarın|öbür gün) ").find(t)?.let { put("date", it.groupValues[1]); t = t.removePrefix(it.value) }
+            if (Regex("\\b(önemli|acil)\\b").containsMatchIn(t)) { put("priority", "yüksek"); t = t.replace(Regex("\\b(önemli|acil)\\b[:,]?"), " ").replace(Regex("\\s+"), " ").trim() }
+            put("title", t)
+        }
 
         private fun p(
             intent: CommandIntent,

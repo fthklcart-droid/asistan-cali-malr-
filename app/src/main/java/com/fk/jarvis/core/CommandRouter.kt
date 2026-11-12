@@ -20,6 +20,11 @@ class CommandRouter(
     private val topics: com.fk.jarvis.data.TopicStore? = null,
     private val deviceStatus: (() -> String)? = null,
     private val browser: InAppBrowser? = null,
+    private val tasks: com.fk.jarvis.data.TaskStore? = null,
+    private val notes: com.fk.jarvis.data.NoteStore? = null,
+    private val routines: com.fk.jarvis.data.RoutineStore? = null,
+    /** Rutin listesi değişti: alarm yeniden kurulur. */
+    private val onRoutinesChanged: () -> Unit = {},
 ) : CommandExecutor {
 
     /** Uygulama içi tarayıcı (WEB bölmesi). Bağlı değilse false döner ve dış tarayıcı kullanılır. */
@@ -115,6 +120,82 @@ class CommandRouter(
                         ?: ok("\"$topic\" konusunu takibe aldım. Günde bir kez internette yeni gelişme arayıp varsa bildirim göndereceğim.")
                     "remove" -> if (t.remove(topic)) ok("\"$topic\" takibini bıraktım.") else fail("\"$topic\" adında takip edilen bir konu bulamadım.")
                     else -> t.all().let { l -> if (l.isEmpty()) ok("Şu an takip ettiğim bir konu yok.") else ok("Takip ettiğim konular: ${l.joinToString(", ") { it.name }}.") }
+                }
+            }
+            CommandIntent.TASK_ADD -> {
+                val ts = tasks ?: return RouteResult.Done(false, "Görevler kullanılamıyor.")
+                val t = ts.add(p.arg("title").orEmpty(), p.arg("date"), p.arg("time"), p.arg("priority")?.toIntOrNull() ?: 1, p.arg("project").orEmpty())
+                    ?: return RouteResult.Done(false, "Görevi ekleyemedim.")
+                undo?.push("Görev: ${t.title.take(40)}") { ts.remove(t.id); true to "\"${t.title}\" görevini listeden kaldırdım." }
+                val whenText = t.due?.let { d -> " (" + com.fk.jarvis.apps.CalendarText.dayLabel(java.time.LocalDate.parse(d), java.time.LocalDate.now()).lowercase(TextNormalizer.TR) + (t.time?.let { " $it" } ?: "") + ")" } ?: ""
+                ok("Görevlerine ekledim: ${t.title}$whenText.")
+            }
+            CommandIntent.TASK_LIST -> {
+                val ts = tasks ?: return RouteResult.Done(false, "Görevler kullanılamıyor.")
+                val today = java.time.LocalDate.now()
+                val day = com.fk.jarvis.apps.CalendarText.parseDate(p.arg("date"), today)
+                if (day != null) ok(com.fk.jarvis.data.TaskStore.describe(ts.forDay(day), today, if (day == today) "Bugünkü görevlerin" else "O günkü görevlerin").replace("Açık görevin yok.", "O gün için görevin yok."))
+                else ok(com.fk.jarvis.data.TaskStore.describe(ts.open(), today))
+            }
+            CommandIntent.TASK_DONE -> {
+                val ts = tasks ?: return RouteResult.Done(false, "Görevler kullanılamıyor.")
+                val hits = ts.find(p.arg("query").orEmpty())
+                when {
+                    hits.isEmpty() -> fail("\"${p.arg("query")}\" adında açık bir görev bulamadım.")
+                    hits.size > 1 && com.fk.jarvis.core.TextNormalizer.normalize(hits[0].title) != com.fk.jarvis.core.TextNormalizer.normalize(p.arg("query").orEmpty()) ->
+                        fail("Birden fazla görev eşleşti: ${hits.take(4).joinToString(", ") { it.title }}. Hangisi?")
+                    else -> {
+                        val t = hits[0]
+                        ts.setDone(t.id, true)
+                        undo?.push("Görev tamamlandı: ${t.title.take(40)}") { ts.setDone(t.id, false); true to "\"${t.title}\" görevini yeniden açtım." }
+                        ok("\"${t.title}\" görevini tamamlandı olarak işaretledim. ${ts.open().size} açık görev kaldı.")
+                    }
+                }
+            }
+            CommandIntent.NOTE_ADD -> {
+                val ns = notes ?: return RouteResult.Done(false, "Notlar kullanılamıyor.")
+                val n = ns.add(p.arg("text").orEmpty()) ?: return RouteResult.Done(false, "Notu kaydedemedim.")
+                undo?.push("Not: ${n.text.take(40)}") { ns.remove(n.id); true to "Son notu sildim." }
+                ok("Not aldım.")
+            }
+            CommandIntent.NOTE_SEARCH -> {
+                val ns = notes ?: return RouteResult.Done(false, "Notlar kullanılamıyor.")
+                val list = ns.search(p.arg("query").orEmpty(), 5)
+                if (list.isEmpty()) ok("Bununla ilgili bir not bulamadım.") else ok("Notların: " + list.joinToString(" — ") { it.text.take(220) })
+            }
+            CommandIntent.ROUTINE_ADD -> {
+                val rs = routines ?: return RouteResult.Done(false, "Rutinler kullanılamıyor.")
+                val r = com.fk.jarvis.data.Routine(
+                    0, p.arg("title") ?: p.arg("text").orEmpty(),
+                    runCatching { com.fk.jarvis.data.Routine.Kind.valueOf(p.arg("kind") ?: "ONCE") }.getOrDefault(com.fk.jarvis.data.Routine.Kind.ONCE),
+                    p.arg("time").orEmpty(), p.arg("date"),
+                    p.arg("days")?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet(),
+                    when (p.arg("action")) { "say" -> com.fk.jarvis.data.Routine.Action.SAY; "task" -> com.fk.jarvis.data.Routine.Action.TASK; else -> com.fk.jarvis.data.Routine.Action.REMIND },
+                    p.arg("text").orEmpty(), created = System.currentTimeMillis(),
+                )
+                val (saved, err) = rs.add(r)
+                if (saved == null) fail(err ?: "Rutini kuramadım.")
+                else {
+                    onRoutinesChanged()
+                    undo?.push("Rutin: ${saved.title.take(40)}") { rs.remove(saved.id); onRoutinesChanged(); true to "\"${saved.title}\" rutinini kaldırdım." }
+                    val what = when (saved.action) { com.fk.jarvis.data.Routine.Action.REMIND -> "Hatırlatıcı kuruldu"; com.fk.jarvis.data.Routine.Action.SAY -> "Rutin kuruldu"; else -> "Ajan rutini kuruldu" }
+                    ok("$what: ${saved.title} — ${saved.scheduleText()}. Bildirim Android'in pil yönetimi nedeniyle birkaç dakika gecikebilir.")
+                }
+            }
+            CommandIntent.ROUTINE_LIST -> {
+                val rs = routines ?: return RouteResult.Done(false, "Rutinler kullanılamıyor.")
+                val l = rs.all().filter { it.enabled }
+                if (l.isEmpty()) ok("Kurulu bir rutin ya da hatırlatıcı yok.") else ok("Kurulu rutinler: " + l.take(8).joinToString("; ") { "${it.title} (${it.scheduleText()})" } + ".")
+            }
+            CommandIntent.ROUTINE_REMOVE -> {
+                val rs = routines ?: return RouteResult.Done(false, "Rutinler kullanılamıyor.")
+                val hits = rs.find(p.arg("query").orEmpty())
+                if (hits.isEmpty()) fail("\"${p.arg("query")}\" ile eşleşen bir rutin bulamadım.")
+                else {
+                    hits.forEach { rs.remove(it.id) }
+                    onRoutinesChanged()
+                    undo?.push("Rutin silme (${hits.size})") { hits.forEach { rs.restore(it) }; onRoutinesChanged(); true to "Silinen rutinleri geri koydum." }
+                    ok("${hits.size} rutini sildim: ${hits.joinToString(", ") { it.title }}.")
                 }
             }
             CommandIntent.CAMERA_LOOK -> fail("Kamerayla bakmak için uygulamanın ekranda açık olması gerekiyor.")
