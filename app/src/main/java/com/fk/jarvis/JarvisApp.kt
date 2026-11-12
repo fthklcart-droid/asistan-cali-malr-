@@ -65,6 +65,14 @@ class JarvisApp : Application() {
         private set
     lateinit var router: CommandRouter
         private set
+    lateinit var tasks: com.fk.jarvis.data.TaskStore
+        private set
+    lateinit var notes: com.fk.jarvis.data.NoteStore
+        private set
+    lateinit var routines: com.fk.jarvis.data.RoutineStore
+        private set
+    /** Uygulama ekranda mı (rutinler yalnızca ekrandayken konuşur / ajan başlatır). */
+    @Volatile var uiVisible = false
 
     /** Ekrandaki Activity'nin sağladığı çalışma zamanı izni isteme köprüsü (ajan için). Activity yoksa izin istenemez. */
     @Volatile var permissionRequester: (suspend (String) -> Boolean)? = null
@@ -87,9 +95,14 @@ class JarvisApp : Application() {
         memory = com.fk.jarvis.data.MemoryStore(java.io.File(filesDir, "memory/memory.json"))
         topics = com.fk.jarvis.data.TopicStore(java.io.File(filesDir, "memory/topics.json"))
         val deviceStatus = { com.fk.jarvis.apps.DeviceStatus.describe(com.fk.jarvis.apps.DeviceStatus.read(this)) }
+        tasks = com.fk.jarvis.data.TaskStore(java.io.File(filesDir, "memory/tasks.json"))
+        notes = com.fk.jarvis.data.NoteStore(java.io.File(filesDir, "memory/notes.json"))
+        routines = com.fk.jarvis.data.RoutineStore(java.io.File(filesDir, "memory/routines.json"))
         router = CommandRouter(
             apps, calendar,
             memory = memory, undo = undo, topics = topics, deviceStatus = deviceStatus,
+            tasks = tasks, notes = notes, routines = routines,
+            onRoutinesChanged = { com.fk.jarvis.service.RoutineScheduler.schedule(this) },
             browser = object : CommandRouter.InAppBrowser {
                 override fun open(url: String) = browser.open(url)
                 override fun search(query: String) = browser.search(query)
@@ -130,6 +143,7 @@ class JarvisApp : Application() {
             context = this, llm = { ai.current() }, calendar = calendar, browser = browser, executor = router,
             requestPermission = { p -> permissionRequester?.invoke(p) ?: false },
             memory = memory, undo = undo, deviceStatus = deviceStatus, topics = topics,
+            tasks = tasks, notes = notes, routines = routines,
         )
         agent = com.fk.jarvis.agent.AgentController(
             appScope,
@@ -138,7 +152,10 @@ class JarvisApp : Application() {
                 memoryHint = { if (settings.current.memoryEnabled) memory.promptBlock(600) else null },
             ),
             speak = { core.speak(it) },
+            historyFile = java.io.File(filesDir, "memory/agent_reports.json"),
+            onFinished = { goal, text, ok -> if (!uiVisible) com.fk.jarvis.service.RoutineScheduler.notifyReport(this, goal, text, ok) },
         )
+        com.fk.jarvis.service.RoutineScheduler.schedule(this)
         // Konu takibi: konu varken günlük kontrol planlı, yokken iptal.
         appScope.launch {
             topics.topics.map { it.isNotEmpty() }.distinctUntilChanged().collect {

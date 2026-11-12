@@ -264,7 +264,7 @@ class IntentClassifier {
 
     companion object {
         const val BRIEFING_GOAL = "Günlük brifing hazırla: bugünün tarihi ve saati; calendar_list ile bugünkü etkinlikler; " +
-            "memory_recall ile hedefler ve projeler; web_research ile bugünün Türkiye ve dünyadan en önemli 3 haberi. " +
+            "tasks_list ile bugünkü ve gecikmiş görevler; memory_recall ile hedefler ve projeler; web_research ile bugünün Türkiye ve dünyadan en önemli 3 haberi. " +
             "Sonucu finish ile 6-8 cümlelik, sesli okunacak, sıcak ve kısa bir sabah brifingi olarak ver. Bilgi alınamayan bölümü kısaca belirt."
 
         /** "yarın raporu gönder" -> başlık + tarih; "önemli" -> yüksek öncelik. */

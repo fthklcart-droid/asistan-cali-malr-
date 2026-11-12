@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- Saat uygulamasında alarm/zamanlayıcı hazırlama (normal izin) -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Kullanıcının kurduğu hatırlatıcı/rutin alarmlarını telefon yeniden başlayınca yeniden kurmak için -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Android 11+ paket görünürlüğü: yalnızca başlatıcıda görünen uygulamaları listelemek için -->
     <queries>
@@ -74,6 +76,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Rutinler ve hatırlatıcılar -->
+        <receiver android:name=".service.RoutineReceiver" android:exported="false" />
+        <receiver android:name=".service.BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Sesli oturum ve "JARVIS" uyandırma sözcüğü (bildirimli ön plan hizmeti) -->
         <service

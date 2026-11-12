@@ -36,7 +36,15 @@ class AndroidAgentTools(
     private val undo: com.fk.jarvis.data.UndoStack? = null,
     private val deviceStatus: (() -> String)? = null,
     private val topics: com.fk.jarvis.data.TopicStore? = null,
+    private val tasks: com.fk.jarvis.data.TaskStore? = null,
+    private val notes: com.fk.jarvis.data.NoteStore? = null,
+    private val routines: com.fk.jarvis.data.RoutineStore? = null,
 ) : AgentTools {
+
+    /** Bu uygulama oturumunda ajanın gerçekten okuduğu sayfalar (adres -> metin); alıntı doğrulaması bunlara karşı yapılır. */
+    private val readPages = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, String>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 12
+    })
 
     override val specs = listOf(
         ToolSpec("web_research", "İnternette araştır", "query", "Güncel bilgi için internette arar ve kaynak adlarıyla kısa özet döndürür."),
@@ -45,6 +53,14 @@ class AndroidAgentTools(
         ToolSpec("browser_read", "Sayfayı oku", "", "Tarayıcıda açık olan sayfanın başlığını, adresini ve metnini okur."),
         ToolSpec("calendar_list", "Takvimi oku", "from (YYYY-MM-DD), days (1-31)", "Cihaz takvimindeki etkinlikleri listeler."),
         ToolSpec("calendar_add", "Takvime ekle", "title, date (YYYY-MM-DD), time (HH:MM, tüm gün için boş), duration_min, location", "Cihaz takvimine etkinlik ekler.", sensitive = true),
+        ToolSpec("verify_quote", "Alıntıyı doğrula", "quote", "Bir alıntının ya da sayının bu görevde okuduğun sayfalardan birinde gerçekten geçip geçmediğini kodda denetler."),
+        ToolSpec("tasks_list", "Görevleri oku", "date (isteğe bağlı YYYY-MM-DD)", "Kullanıcının açık görevlerini (yapılacaklar) listeler."),
+        ToolSpec("task_add", "Görev ekle", "title, date, time, priority (düşük|normal|yüksek), project", "Yapılacaklar listesine görev ekler."),
+        ToolSpec("task_done", "Görevi tamamla", "query", "Adı verilen açık görevi tamamlandı olarak işaretler."),
+        ToolSpec("note_save", "Not kaydet", "text", "Kullanıcının notlarına metin kaydeder (rapor, toplantı notu, taslak)."),
+        ToolSpec("notes_search", "Notlarda ara", "query (boşsa son notlar)", "Kullanıcının notlarında arar."),
+        ToolSpec("routine_add", "Rutin/hatırlatıcı kur", "text, time (HH:MM), date (tek seferlik), repeat (her gün|hafta içi|gün adları), action (remind|say|task)", "Belirli zamanda hatırlatma ya da tekrarlayan rutin kurar."),
+        ToolSpec("routines_list", "Rutinleri oku", "", "Kurulu rutin ve hatırlatıcıları listeler."),
         ToolSpec("memory_recall", "Hafızaya bak", "query (boşsa tümü)", "Kullanıcı hakkında daha önce kaydedilmiş bilgileri arar (yerel, anında)."),
         ToolSpec("memory_save", "Hafızaya kaydet", "value, category, key", "Kullanıcının açıkça hatırlanmasını istediği kalıcı bir bilgiyi kaydeder. Gizli bilgi (parola, kart, kod) asla."),
         ToolSpec("device_status", "Telefon durumu", "", "Pil, sıcaklık, bellek, depolama ve ağ durumunu okur."),
@@ -74,6 +90,25 @@ class AndroidAgentTools(
         "calendar_list" -> calendarList(args)
         "calendar_add" -> calendarAdd(args, confirm)
         "phone_action" -> phoneAction(args, confirm)
+        "verify_quote" -> {
+            val q = args.optString("quote")
+            val url = QuoteCheck.find(q, HashMap(readPages))
+            when {
+                q.length < 8 -> ToolOutcome(false, "HATA: Alıntı çok kısa.")
+                readPages.isEmpty() -> ToolOutcome(false, "DOĞRULANAMADI: Henüz hiçbir sayfa okumadın; önce browser_open ile kaynağı aç.")
+                url != null -> ToolOutcome(true, "DOĞRULANDI: Alıntı şu sayfada geçiyor: $url")
+                else -> ToolOutcome(false, "DOĞRULANAMADI: Alıntı okunan ${readPages.size} sayfanın hiçbirinde bu hâliyle geçmiyor. Kullanma ya da doğrulanamadığını belirt.")
+            }
+        }
+        "tasks_list" -> routed(com.fk.jarvis.core.CommandIntent.TASK_LIST, args, confirm)
+        "task_add" -> routed(com.fk.jarvis.core.CommandIntent.TASK_ADD, args, confirm)
+        "task_done" -> routed(com.fk.jarvis.core.CommandIntent.TASK_DONE, args, confirm)
+        "note_save" -> routed(com.fk.jarvis.core.CommandIntent.NOTE_ADD, args, confirm)
+        "notes_search" -> notes?.search(args.optString("query"), 6)?.let { l ->
+            ToolOutcome(true, if (l.isEmpty()) "İlgili not yok." else l.joinToString("\n") { "- ${it.text.take(600)}" })
+        } ?: ToolOutcome(false, "HATA: Notlar kullanılamıyor.")
+        "routine_add" -> routed(com.fk.jarvis.core.CommandIntent.ROUTINE_ADD, args, confirm)
+        "routines_list" -> routed(com.fk.jarvis.core.CommandIntent.ROUTINE_LIST, args, confirm)
         "memory_recall" -> memory?.let { m -> ToolOutcome(true, m.search(args.optString("query"), 12).let { l -> if (l.isEmpty()) "Hafızada ilgili bilgi yok." else l.joinToString("\n") { "- [${it.category}] ${it.key}: ${it.value}" } }) }
             ?: ToolOutcome(false, "HATA: Hafıza kapalı.")
         "memory_save" -> memory?.let { m ->
@@ -102,8 +137,18 @@ class AndroidAgentTools(
         return if (page != null) ToolOutcome(true, "$prefix.\n$page") else ToolOutcome(true, "$prefix ama sayfa metni okunamadı (yükleniyor olabilir).")
     }
 
+    /** Araç argümanlarını (düz JSON) izinli bir komuta çevirir; aynı güvenlik denetimi ve yönlendiriciden geçer. */
+    private suspend fun routed(intent: com.fk.jarvis.core.CommandIntent, args: JSONObject, confirm: suspend (String) -> Boolean): ToolOutcome {
+        val a = mutableMapOf<String, String>()
+        val keys = args.keys()
+        while (keys.hasNext()) { val k = keys.next(); val v = args.opt(k); if (v != null && v != JSONObject.NULL && v.toString().isNotBlank()) a[k] = v.toString() }
+        return runProposal(CommandProposal(intent, arguments = a, source = CommandProposal.Source.LLM), confirm)
+    }
+
     private suspend fun readPage(max: Int): String? {
-        val p = browser.readPage(max) ?: return null
+        val full = browser.readPage(20_000) ?: return null
+        if (full.url.isNotBlank() && full.text.isNotBlank()) readPages[full.url] = full.text
+        val p = full.copy(text = full.text.take(max))
         return "Başlık: ${p.title}\nAdres: ${p.url}\nMetin:\n${p.text}"
     }
 
@@ -169,6 +214,10 @@ class AndroidAgentTools(
     private suspend fun phoneAction(args: JSONObject, confirm: suspend (String) -> Boolean): ToolOutcome {
         val p0 = com.fk.jarvis.live.GeminiLiveProtocol.toProposal(args)
         if (p0.intent in BLOCKED) return ToolOutcome(false, "HATA: '${p0.intent.wire}' phone_action ile kullanılamaz; uygun aracı kullan.")
+        return runProposal(p0, confirm)
+    }
+
+    private suspend fun runProposal(p0: CommandProposal, confirm: suspend (String) -> Boolean): ToolOutcome {
         var p = when (val d = SafetyPolicy.evaluate(p0)) {
             is SafetyDecision.Reject -> return ToolOutcome(false, "HATA: ${d.reason}")
             is SafetyDecision.Allow -> d.proposal

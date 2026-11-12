@@ -47,6 +47,10 @@ data class AssistantSettings(
     val avatarHolo3d: Boolean = true,
     /** Kalıcı hafızanın kısa özeti yapay zekâ isteklerine bağlam olarak eklensin mi. */
     val memoryEnabled: Boolean = true,
+    /** Sessiz saatler: bu aralıkta tekrarlayan rutinler konuşmaz (tek seferlik hatırlatıcılar çalışır). */
+    val quietHours: Boolean = true,
+    val quietStart: String = "23:00",
+    val quietEnd: String = "07:00",
 ) {
     fun modelFor(id: String) = models[id]?.takeIf { it.isNotBlank() } ?: AIProviderManager.defaultModel(id)
     fun baseUrlFor(id: String) = baseUrls[id]?.takeIf { it.isNotBlank() }
@@ -89,6 +93,9 @@ class SettingsRepository(context: Context) {
             uiGrid = prefs.getBoolean("ui_grid", d.uiGrid),
             avatarHolo3d = prefs.getBoolean("avatar_holo3d", d.avatarHolo3d),
             memoryEnabled = prefs.getBoolean("memory_enabled", d.memoryEnabled),
+            quietHours = prefs.getBoolean("quiet_hours", d.quietHours),
+            quietStart = prefs.getString("quiet_start", d.quietStart) ?: d.quietStart,
+            quietEnd = prefs.getString("quiet_end", d.quietEnd) ?: d.quietEnd,
         )
     }
 
@@ -118,6 +125,9 @@ class SettingsRepository(context: Context) {
             .putBoolean("ui_grid", s.uiGrid)
             .putBoolean("avatar_holo3d", s.avatarHolo3d)
             .putBoolean("memory_enabled", s.memoryEnabled)
+            .putBoolean("quiet_hours", s.quietHours)
+            .putString("quiet_start", s.quietStart)
+            .putString("quiet_end", s.quietEnd)
         for (id in ids) {
             val m = s.models[id]
             if (m != null) e.putString("model_$id", m) else e.remove("model_$id")

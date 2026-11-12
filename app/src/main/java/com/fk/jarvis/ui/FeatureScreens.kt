@@ -83,6 +83,11 @@ class HoloExtras(
     val calendar: CalendarReader,
     val memory: MemoryStore,
     val topics: TopicStore,
+    val tasks: com.fk.jarvis.data.TaskStore,
+    val notes: com.fk.jarvis.data.NoteStore,
+    val routines: com.fk.jarvis.data.RoutineStore,
+    /** Rutin listesi değişti: alarm yeniden kurulur. */
+    val routinesChanged: () -> Unit,
     val calendarGranted: Boolean,
     /** Takvim listesini yenilemek için artan sayaç (etkinlik eklenince). */
     val calendarVersion: Int,
@@ -103,19 +108,41 @@ class HoloExtras(
 
 // ===================================================================== AJAN
 
-private val PRESETS = listOf(
-    "Günlük brifing" to IntentClassifier.BRIEFING_GOAL,
-    "Yarınki programım" to "Yarınki takvim etkinliklerime bak ve kısaca özetle; çakışma ya da boşluk varsa söyle.",
-    "Haftanın boş akşamları" to "Bu haftaki takvimime bak ve 18:00'den sonra boş olan akşamları listele.",
-    "Açık sayfayı özetle" to "Tarayıcıda açık olan sayfayı oku ve en önemli noktaları 4 cümlede özetle.",
-    "Telefon kontrolü" to "Telefonun pil, sıcaklık, bellek ve depolama durumunu kontrol et ve kısa öneriler ver.",
-    "Hava + takvim" to "Yarın için İstanbul hava durumunu araştır; yarın takvimimde dışarıda bir etkinlik varsa hava durumuna göre öneri ver.",
+/** Hazır görevler: (etiket, hedef, profil kimliği; null = otomatik). Hedefte köşeli parantezli yer varsa görev alanına yazılır, kullanıcı tamamlar. */
+private val PRESETS: List<Pair<String, List<Triple<String, String, String?>>>> = listOf(
+    "KİŞİSEL" to listOf(
+        Triple("Günlük brifing", IntentClassifier.BRIEFING_GOAL, "genel"),
+        Triple("Yarınki programım", "Yarınki takvim etkinliklerime ve yarına tarihli görevlerime bak, kısaca özetle; çakışma ya da boşluk varsa söyle.", "planlayici"),
+        Triple("Telefon kontrolü", "Telefonun pil, sıcaklık, bellek ve depolama durumunu kontrol et ve kısa öneriler ver.", "genel"),
+        Triple("Hava + takvim", "Yarın için bulunduğum şehrin hava durumunu araştır (şehri hafızadan öğren; yoksa İstanbul); yarın dışarıda bir etkinliğim varsa hava durumuna göre öneri ver.", "genel"),
+    ),
+    "PLANLAMA" to listOf(
+        Triple("Günümü planla", "Bugünkü takvimime ve açık görevlerime bak; en önemli 3 işi belirle ve boş zaman dilimlerine yerleştirilmiş gerçekçi bir gün planı öner. Takvime bir şey yazma.", "planlayici"),
+        Triple("Haftamı planla", "Önümüzdeki 7 günün takvimine ve açık görevlerime bak; görevleri günlere dağıtan bir hafta planı öner. Takvime bir şey yazma.", "planlayici"),
+        Triple("Boş akşamlar", "Bu haftaki takvimime bak ve 18:00'den sonra boş olan akşamları listele.", "planlayici"),
+        Triple("Görevleri önceliklendir", "Açık görevlerimi oku; aciliyet ve öneme göre sırala, bugün yapılması gereken 3 tanesini gerekçesiyle söyle.", "planlayici"),
+    ),
+    "İŞ" to listOf(
+        Triple("E-posta taslağı", "Şu konuda profesyonel ve kısa bir e-posta taslağı hazırla: [konu ve alıcı]", "is"),
+        Triple("Toplantı hazırlığı", "Bugünkü ve yarınki toplantılarıma bak; her biri için ilgili notlarımı ara ve kısa bir hazırlık listesi (gündem, sorulacak sorular) çıkar.", "is"),
+        Triple("Teklif taslağı", "Şu iş için müşteriye gönderilecek kısa bir teklif taslağı hazırla: [iş, kapsam, fiyat]", "is"),
+        Triple("Haftalık rapor", "Bu hafta tamamlanan ve açık kalan görevlerime ve notlarıma bak; yöneticiye gönderilecek kısa bir haftalık durum raporu taslağı hazırla.", "is"),
+        Triple("Şirket araştır", "Şu şirketi araştır; ne iş yaptığını, büyüklüğünü ve son haberleri kaynak adlarıyla özetle: [şirket adı]", "arastirmaci"),
+    ),
+    "ARAŞTIRMA" to listOf(
+        Triple("Derin araştırma", "Şu konuyu derin araştır, kaynakları oku, alıntıları doğrula ve kaynaklı kısa rapor yaz: [konu]", "arastirmaci"),
+        Triple("Karşılaştır", "Şunları karşılaştır; artı/eksi ve fiyat bilgilerini kaynak adlarıyla ver: [A ve B]", "arastirmaci"),
+        Triple("Açık sayfayı özetle", "Tarayıcıda açık olan sayfayı oku ve en önemli noktaları 4 cümlede özetle.", "arastirmaci"),
+    ),
 )
 
 @Composable
 fun AgentScreen(x: HoloExtras) {
     val ui by x.agent.ui.collectAsStateWithLifecycle()
     var goal by rememberSaveable { mutableStateOf("") }
+    var profileId by rememberSaveable { mutableStateOf("") }   // "" = otomatik
+    var category by rememberSaveable { mutableStateOf(0) }
+    val reports by x.agent.history.collectAsStateWithLifecycle()
     Column(
         Modifier.fillMaxSize().statusBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -130,17 +157,38 @@ fun AgentScreen(x: HoloExtras) {
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HoloButton("BAŞLAT", filled = true, enabled = !ui.running && goal.isNotBlank()) {
-                    if (x.agent.start(goal)) goal = "" else x.toast("Başka bir görev çalışıyor.")
+                    if (goal.contains('[')) x.toast("Köşeli parantezli yeri kendi bilginle değiştir.")
+                    else if (x.agent.start(goal, profileId = profileId.ifBlank { null })) goal = "" else x.toast("Başka bir görev çalışıyor.")
                 }
                 if (ui.running) HoloButton("DURDUR", accent = JarvisColors.danger) { x.agent.stop() }
                 else if (ui.steps.isNotEmpty() || ui.answer != null || ui.error != null) HoloButton("TEMİZLE", accent = JarvisColors.dim) { x.agent.clear() }
             }
             Spacer(Modifier.height(12.dp))
+            FieldLabel("AJAN PROFİLİ")
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HoloChip("OTOMATİK", active = profileId.isBlank()) { profileId = "" }
+                com.fk.jarvis.agent.AgentProfiles.all.forEach { p -> HoloChip(p.label, active = profileId == p.id) { profileId = p.id } }
+            }
+            Spacer(Modifier.height(4.dp))
+            BodyText(
+                com.fk.jarvis.agent.AgentProfiles.all.firstOrNull { it.id == profileId }?.let { "${it.description} · en fazla ${it.maxSteps} adım" }
+                    ?: "Göreve göre uygun profil seçilir (araştırma, planlama, iş, genel).", size = 12,
+            )
+            Spacer(Modifier.height(12.dp))
             FieldLabel("HAZIR GÖREVLER")
             Spacer(Modifier.height(6.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PRESETS.forEach { (label, g) ->
-                    HoloChip(label, active = false) { if (!ui.running) { if (!x.agent.start(g)) x.toast("Başka bir görev çalışıyor.") } }
+                PRESETS.forEachIndexed { i, (cat, _) -> HoloChip(cat, active = category == i, accent = JarvisColors.gold) { category = i } }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PRESETS[category.coerceIn(0, PRESETS.size - 1)].second.forEach { (label, g, pid) ->
+                    HoloChip(label, active = false) {
+                        // Doldurulacak yeri olan görevler alana yazılır; diğerleri hemen başlar.
+                        if (g.contains('[')) { goal = g; profileId = pid ?: "" }
+                        else if (!ui.running) { if (!x.agent.start(g, profileId = pid)) x.toast("Başka bir görev çalışıyor.") }
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -159,9 +207,14 @@ fun AgentScreen(x: HoloExtras) {
         }
 
         if (ui.goal.isNotBlank()) {
-            HoloPanel(title = "ADIMLAR", trailing = { if (ui.running) ScanLine() }) {
+            HoloPanel(title = "ADIMLAR" + if (ui.profile.isNotBlank()) " · ${ui.profile}" else "", trailing = { if (ui.running) ScanLine() }) {
                 BodyText("Hedef: ${ui.goal.take(240)}", JarvisColors.text, 13)
                 Spacer(Modifier.height(8.dp))
+                if (ui.plan.isNotEmpty()) {
+                    FieldLabel("PLAN")
+                    ui.plan.forEachIndexed { i, p -> Text("${i + 1}. $p", color = JarvisColors.pink, fontSize = 13.sp, lineHeight = 18.sp) }
+                    Spacer(Modifier.height(8.dp))
+                }
                 if (ui.steps.isEmpty() && ui.running) BodyText("Plan yapılıyor…")
                 ui.steps.forEach { StepRow(it) }
             }
@@ -178,6 +231,36 @@ fun AgentScreen(x: HoloExtras) {
             }
         }
         ui.error?.let { HoloPanel(title = "DURUM", accent = JarvisColors.danger) { BodyText(it, JarvisColors.text, 14) } }
+
+        if (reports.isNotEmpty()) {
+            HoloPanel(title = "RAPORLAR", accent = JarvisColors.dim, trailing = { HoloButton("SİL", accent = JarvisColors.dim) { x.agent.clearHistory() } }) {
+                reports.take(15).forEach { r ->
+                    var open by remember(r.at) { mutableStateOf(false) }
+                    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StatusDot(if (r.ok) OK else JarvisColors.danger, pulse = false, size = 7)
+                            Spacer(Modifier.width(8.dp))
+                            Text(r.goal, color = JarvisColors.text, fontSize = 13.sp, maxLines = if (open) 6 else 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        }
+                        Text(
+                            "${r.profile} · ${r.steps} adım · " + DateTimeFormatter.ofPattern("d MMM HH:mm", TR).format(Instant.ofEpochMilli(r.at).atZone(ZoneId.systemDefault())),
+                            color = JarvisColors.dim, fontFamily = Mono, fontSize = 10.sp,
+                        )
+                        if (open) {
+                            Spacer(Modifier.height(4.dp))
+                            BodyText(r.text, JarvisColors.text, 13)
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                HoloButton("SESLİ OKU") { x.speak(r.text) }
+                                HoloButton("NOTLARA KAYDET", accent = JarvisColors.dim) {
+                                    if (x.notes.add("${r.goal.take(120)}\n${r.text}") != null) x.toast("Notlara kaydedildi.") else x.toast("Kaydedilemedi.")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -422,6 +505,7 @@ fun BrowserScreen(x: HoloExtras) {
 @Composable
 fun MenuScreen(onOpen: (String) -> Unit) {
     val items = listOf(
+        Triple("UYGULAMA", "Telefondaki uygulamalar", "APPS"),
         Triple("SOHBET", "Konuşma geçmişi", "CHAT"),
         Triple("HAFIZA", "Hatırladıklarım, takip edilen konular, geri al", "MEMORY"),
         Triple("ARAYÜZ", "Avatar, renkler, 3B efektler", "UI"),

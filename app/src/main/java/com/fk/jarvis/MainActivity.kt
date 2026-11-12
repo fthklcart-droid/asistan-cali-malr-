@@ -164,6 +164,7 @@ class MainActivity : ComponentActivity() {
         }
         app.permissionRequester = { p -> requestPermissionForAgent(p) }
         app.cameraLooker = { q -> startCameraLook(q) }
+        handleRoutineIntent(intent)
 
         setContent {
             JarvisTheme {
@@ -215,6 +216,10 @@ class MainActivity : ComponentActivity() {
                         calendar = app.calendar,
                         memory = app.memory,
                         topics = app.topics,
+                        tasks = app.tasks,
+                        notes = app.notes,
+                        routines = app.routines,
+                        routinesChanged = { com.fk.jarvis.service.RoutineScheduler.schedule(this@MainActivity) },
                         calendarGranted = system.calendarGranted,
                         calendarVersion = calendarVersion,
                         pageSummary = pageSummary,
@@ -479,6 +484,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleRoutineIntent(intent)
+    }
+
+    /** Rutin bildirimine dokunuldu: bekleyen seslendirmeyi yap ya da ajan görevini başlat. */
+    private fun handleRoutineIntent(i: Intent?) {
+        if (i == null || !app.settings.current.consentAccepted) return
+        i.getStringExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_SAY)?.let { app.core.speak("Hatırlatma: $it") }
+        i.getStringExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_TASK)?.let { if (!app.agent.start(it, fromVoice = true)) toast("Başka bir ajan görevi çalışıyor.") }
+        i.removeExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_SAY)
+        i.removeExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_TASK)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        app.uiVisible = true
+        // Uygulama kapalıyken zamanı gelmiş rutin varsa şimdi çalıştır ve alarmı yenile.
+        if (app.settings.current.consentAccepted) com.fk.jarvis.service.RoutineScheduler.runDue(this)
+    }
+
     override fun onResume() {
         super.onResume()
         refreshSystem()
@@ -488,6 +514,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        app.uiVisible = false
         // Live oturumu arka planda ön plan hizmetiyle sürer; hizmet yoksa kapatılır.
         if (app.live.active.value && !AssistantSessionService.running) app.live.stop()
         // Arka plana geçerken: ön plan hizmeti yoksa (oturum/uyandırma kapalı) mikrofonu kapat.

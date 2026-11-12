@@ -90,12 +90,12 @@ shot 02_asistan
 
 i=3
 # Alt çubuktaki bölmeler
-for TAB in "AJAN" "TAKVİM" "WEB" "UYGULAMA" "MENÜ"; do
+for TAB in "PLAN" "AJAN" "TAKVİM" "WEB" "MENÜ"; do
   if tap_text "$TAB" exact; then sleep 4; shot "$(printf '%02d' $i)_$TAB"; else FAIL=1; fi
   i=$((i + 1))
 done
 # MENÜ'den açılan bölümler
-for SUB in "SOHBET" "HAFIZA" "ARAYÜZ" "SUNUCU" "SİSTEM" "AYARLAR"; do
+for SUB in "UYGULAMA" "SOHBET" "HAFIZA" "ARAYÜZ" "SUNUCU" "SİSTEM" "AYARLAR"; do
   if tap_text "MENÜ" exact && sleep 2 && tap_text "$SUB" exact; then sleep 3; shot "$(printf '%02d' $i)_$SUB"; else FAIL=1; fi
   i=$((i + 1))
 done

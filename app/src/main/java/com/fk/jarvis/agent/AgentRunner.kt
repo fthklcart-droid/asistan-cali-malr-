@@ -65,6 +65,22 @@ object AgentProfiles {
 /** Aracın çalışma sonucu. [observation] modele geri verilir. */
 data class ToolOutcome(val ok: Boolean, val observation: String)
 
+/**
+ * Alıntı doğrulama (kodda, modele güvenmeden): alıntı, bu görevde gerçekten okunan sayfa metinlerinden birinde geçiyor mu.
+ * Büyük/küçük harf, noktalama ve boşluk farkları yok sayılır.
+ */
+object QuoteCheck {
+    private fun norm(s: String) = s.lowercase(java.util.Locale.forLanguageTag("tr-TR"))
+        .replace(Regex("[\\p{P}\\p{S}]+"), " ").replace(Regex("\\s+"), " ").trim()
+
+    /** @return eşleşen sayfanın adresi; bulunamazsa null. */
+    fun find(quote: String, pages: Map<String, String>): String? {
+        val q = norm(quote)
+        if (q.length < 8) return null
+        return pages.entries.firstOrNull { norm(it.value).contains(q) }?.key
+    }
+}
+
 /** Arayüzde gösterilen adım kaydı. */
 data class AgentStep(
     val index: Int,
