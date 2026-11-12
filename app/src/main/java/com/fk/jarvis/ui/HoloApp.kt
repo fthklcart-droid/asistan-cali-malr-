@@ -142,7 +142,7 @@ interface HoloActions {
 }
 
 private enum class Tab(val label: String, val inBar: Boolean) {
-    ASSISTANT("ASİSTAN", true), PLAN("PLAN", true), AGENT("AJAN", true), CALENDAR("TAKVİM", true), WEB("WEB", true), MENU("MENÜ", true),
+    ASSISTANT("ASİSTAN", true), CENTER("MERKEZ", true), PLAN("PLAN", true), AGENT("AJAN", true), CALENDAR("TAKVİM", true), WEB("WEB", true), MENU("MENÜ", true),
     APPS("UYGULAMA", false), CHAT("SOHBET", false), MEMORY("HAFIZA", false), UI("ARAYÜZ", false), SERVER("SUNUCU", false), SYSTEM("SİSTEM", false), SETTINGS("AYARLAR", false),
 }
 
@@ -203,6 +203,7 @@ fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions, x: HoloExtras) {
                     }) {
                     when (t) {
                         Tab.ASSISTANT -> Box(Modifier.fillMaxSize())
+                        Tab.CENTER -> Overlay { CommandCenterScreen(s, x, openPlan = { dir = 1; tabName = Tab.PLAN.name }, openAgent = { dir = 1; tabName = Tab.AGENT.name }) }
                         Tab.PLAN -> Overlay { PlanScreen(s, a, x) { dir = 1; tabName = Tab.AGENT.name } }
                         Tab.AGENT -> Overlay { AgentScreen(x) }
                         Tab.CALENDAR -> Overlay { CalendarScreen(x) }

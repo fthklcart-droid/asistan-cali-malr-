@@ -19,11 +19,12 @@ Alt çubuktaki **ARAYÜZ** düğmesi veya Ayarlar > Arayüz ile değişir. Aray�
 
 **Dört rol, tek asistan:** kişisel asistan (ses, hafıza, telefon kontrolü) · iş asistanı (taslaklar, toplantı hazırlığı, notlar, araştırma) · planlayıcı (görevler, takvim, rutinler) · iş yapan ajan (plan çıkarır, araçlarla uygular, rapor verir). Hepsi sesle de kullanılır.
 
-**Holografik arayüz:** alt çubukta 6 bölme (ASİSTAN, PLAN, AJAN, TAKVİM, WEB, MENÜ); diğer bölümler MENÜ'den açılır. Bölmeler 3B dönerek geçer, paneller kademeli açılır.
+**Holografik arayüz:** alt çubukta 7 bölme (ASİSTAN, MERKEZ, PLAN, AJAN, TAKVİM, WEB, MENÜ); diğer bölümler MENÜ'den açılır. Bölmeler 3B dönerek geçer, paneller kademeli açılır.
 
 | Bölme | İçerik |
 |---|---|
 | **ASİSTAN** | Avatar, HUD başlığı (durum, mikrofon, yapay zekâ, oturum ışıkları), canlı metin dökümü, onay/seçim/taslak panelleri, ses seviyesi göstergesi, animasyonlu mikrofon küresi, yazılı komut |
+| **MERKEZ** | Komuta merkezi: asistanın durumuna ve sesine tepki veren **3B reaktör çekirdeği**, canlı halka göstergeler (pil, bellek, depolama, sıcaklık), ağ hızı grafiği, sıradaki görevler ve rutin, **pano zekâsı** (kopyalanan metni çevir / özetle / açıkla / düzelt — pano yalnızca düğmeye basınca okunur), döküm tarzı kayıt |
 | **PLAN** | Bugünün özeti (etkinlik, bugünkü/açık görev sayıları), **görevler** (tarih, öncelik, tamamla), **rutinler ve hatırlatıcılar** (bir kez / her gün / hafta içi / hafta sonu; hatırlat, sesli söyle, ajan görevi), sessiz saatler, **notlar**; GÜNÜMÜ / HAFTAMI PLANLA |
 | **AJAN** | Görev yaz ya da kategorili hazır görev seç (KİŞİSEL, PLANLAMA, İŞ, ARAŞTIRMA). **Profil**: otomatik, GENEL, ARAŞTIRMACI, PLANLAYICI, İŞ ASİSTANI. Önce plan gösterilir, adımlar canlı listelenir, onay gereken adımda ONAYLA/REDDET, DURDUR. Biten görevler **RAPORLAR**'da saklanır (sesli oku, notlara kaydet) |
 | **TAKVİM** | Haftalık şerit, seçili günün etkinlikleri (dokununca takvim uygulamasında açılır), yeni etkinlik formu (başlık, saat, süre, yer) |
@@ -246,7 +247,7 @@ Kalıcı hafıza (kaydet / hatırla / ara), günlük açılış brifingi, arka p
 
 | Kapsam | Durum |
 |---|---|
-| 106 birim + entegrasyon testi (görevler, notlar, rutin zamanlaması ve sessiz saatler, ajan profilleri ve plan ayrıştırma dahil; önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
+| 108 birim + entegrasyon testi (görevler, notlar, rutin zamanlaması ve sessiz saatler, ajan profilleri ve plan ayrıştırma dahil; önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
 | Android derlemesi, debug APK, `targetSdkVersion 36` ve imza doğrulaması | GitHub Actions'ta |
 | Avatar animasyonları (iki arayüz, tüm durumlar) | Masaüstü Chromium'da ekran görüntüsüyle kontrol edildi |
 

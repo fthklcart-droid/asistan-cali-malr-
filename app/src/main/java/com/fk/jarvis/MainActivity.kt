@@ -220,6 +220,7 @@ class MainActivity : ComponentActivity() {
                         notes = app.notes,
                         routines = app.routines,
                         routinesChanged = { com.fk.jarvis.service.RoutineScheduler.schedule(this@MainActivity) },
+                        center = centerHooks,
                         calendarGranted = system.calendarGranted,
                         calendarVersion = calendarVersion,
                         pageSummary = pageSummary,
@@ -295,6 +296,23 @@ class MainActivity : ComponentActivity() {
                 ConnectionTest(id, false, false, "Beklenmeyen hata: ${e.javaClass.simpleName}", SystemClock.elapsedRealtime() - t0)
             }
         }
+    }
+
+    /** MERKEZ bölmesinin köprüleri: cihaz durumu, pano (yalnızca düğmeyle okunur), yapay zekâ. */
+    private val centerHooks by lazy {
+        com.fk.jarvis.ui.CenterHooks(
+            snapshot = { com.fk.jarvis.apps.DeviceStatus.read(applicationContext) },
+            readClipboard = {
+                val cm = getSystemService(android.content.ClipboardManager::class.java)
+                try { cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString() } catch (e: Exception) { null }
+            },
+            copy = { text -> app.apps.copyToClipboard(text, "JARVIS") },
+            ask = { system, user ->
+                val provider = app.ai.current()
+                if (!provider.isConfigured) throw IllegalStateException("Bunun için MENÜ → SUNUCU bölmesinden bir yapay zekâ sağlayıcısı ve API anahtarı eklemelisin.")
+                try { provider.completeJson(system, user) } catch (e: LlmException) { throw IllegalStateException(e.userMessage()) }
+            },
+        )
     }
 
     private fun toast(msg: String) = android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()

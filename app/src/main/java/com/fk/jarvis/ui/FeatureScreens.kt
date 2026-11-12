@@ -88,6 +88,8 @@ class HoloExtras(
     val routines: com.fk.jarvis.data.RoutineStore,
     /** Rutin listesi değişti: alarm yeniden kurulur. */
     val routinesChanged: () -> Unit,
+    /** MERKEZ (komuta merkezi) için cihaz durumu, pano ve yapay zekâ köprüleri. */
+    val center: CenterHooks,
     val calendarGranted: Boolean,
     /** Takvim listesini yenilemek için artan sayaç (etkinlik eklenince). */
     val calendarVersion: Int,

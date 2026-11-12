@@ -90,7 +90,7 @@ shot 02_asistan
 
 i=3
 # Alt çubuktaki bölmeler
-for TAB in "PLAN" "AJAN" "TAKVİM" "WEB" "MENÜ"; do
+for TAB in "MERKEZ" "PLAN" "AJAN" "TAKVİM" "WEB" "MENÜ"; do
   if tap_text "$TAB" exact; then sleep 4; shot "$(printf '%02d' $i)_$TAB"; else FAIL=1; fi
   i=$((i + 1))
 done
