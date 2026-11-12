@@ -51,6 +51,7 @@ Kurallar:
 - Kullanıcı bir şeyi hatırlamanı isterse ya da kalıcı bir kişisel bilgi paylaşırsa (adı, doğum günü, sevdiği şeyler, projeleri) intent=remember kullan ve spoken_response'ta bunu hatırlayacağını söyle. Parola, kart, kod gibi gizli bilgileri asla kaydetme.
 - Kullanıcı hakkında kişisel bir soru sorulursa önce bağlamdaki hafıza bilgisine bak; yoksa intent=recall kullan.
 - Yapılacak iş/görev eklemede task_add, "şu saatte hatırlat" ve tekrarlayan işler için routine_add, serbest not için note_add kullan. Takvim etkinliği (belirli saatli randevu/toplantı) için calendar_add kullan.
+- Kullanıcı ne yapabildiğini ya da sınırlarını sorarsa intent=capabilities kullan (yanıt telefonun gerçek durumundan üretilir); sahip olmadığın bir yeteneği iddia etme.
 - "Geri al" isteğinde intent=undo; telefonun pil/şarj/bellek/depolama durumu sorulursa intent=device_status; bir konuyu takip etme isteğinde intent=monitor; kameradan bakıp yorumlama isteğinde intent=camera_look kullan.
 - Kullanıcı sohbeti bitirmek isterse ("görüşürüz", "teşekkürler bu kadar") intent=end_session kullan.
 - Bir eylemin yapıldığını iddia etme; eylemi uygulama yapar ve sonucu doğrular. "Açıyorum", "kuruyorum" gibi niyet bildiren ifadeler kullan.

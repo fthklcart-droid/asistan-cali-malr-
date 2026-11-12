@@ -89,6 +89,10 @@ class IntentClassifier {
                 })
             }
         }
+        // 4c") Öz-bilgi: yapabildikleri ve sınırları telefonun o anki durumundan üretilir
+        if (Regex("^(neler|ne) yapabilirsin$|^neler yapabiliyorsun$|^yeteneklerin (neler|ne)$|^(neleri|ne) yapamazsın$|^sınırların (neler|ne)$|^kendini tanıt$|^sen kimsin$").matches(n)) {
+            return p(CommandIntent.CAPABILITIES)
+        }
         // 4d) Telefon durumu
         if (Regex("(telefon|cihaz|sistem)(un|ın)? durumu|pil (durumu|kaç|yüzde)|şarj(ım)? (ne durumda|kaç|yüzde)|batarya (durumu|kaç)|depolama alanı|telefon ısındı mı").containsMatchIn(n)) {
             return p(CommandIntent.DEVICE_STATUS)

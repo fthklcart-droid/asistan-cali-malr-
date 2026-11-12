@@ -1,13 +1,53 @@
+# ── SRİUS JARVIS — depoya asla girmemesi gerekenler ───────────────────────────
+# Burada listelenenler ya derleme sırasında üretilir ya da kişiseldir. Temiz bir
+# kopya bunların hiçbiri olmadan derlenir (test anahtarıyla imzalanır) ve ilk
+# açılışta gizlilik onayı ekranına gelir; yani hiçbirinin gönderilmesi gerekmez,
+# bazılarının ise kesinlikle gönderilmemesi gerekir.
+
+# ── Sırlar. Bunlardan birini göndermek onu herkese yayımlar. ──────────────────
+# üretim imza anahtarının yolu ve PAROLALARI
+keystore.properties
+# üretim imza anahtarı — kaybolursa/sızarsa uygulama güncellenemez
+signing/release*.jks
+*.keystore
+# yerel çıktı klasörü: üretim anahtarı ve base64 kopyası burada durabilir
+apk/
+*KEYSTORE_BASE64*
+# bu makinedeki Android SDK yolu
+local.properties
+google-services.json
+**/client_secret*.json
+*credentials*.json
+.env
+.env.*
+# Not: signing/sirius-test.jks bilerek depodadır — herkese açık TEST anahtarıdır, gizli değildir.
+# API anahtarları hiçbir dosyada tutulmaz: uygulama içinde girilir, Android Keystore ile şifrelenir.
+
+# ── Derleme çıktıları ─────────────────────────────────────────────────────────
 .gradle/
 build/
 /app/build/
-local.properties
-.idea/
-*.iml
-.DS_Store
 captures/
 *.apk
-*.keystore
-keystore.properties
-signing/release*.jks
-apk/
+*.aab
+*.ap_
+*.dex
+.kotlin/
+.cxx/
+.externalNativeBuild/
+
+# ── Düzenleyiciler ve işletim sistemleri ──────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Çalışma zamanı çıktıları ──────────────────────────────────────────────────
+*.log
+logs/
+# emülatör testinin ekran görüntüleri ve logcat'i
+smoke/
+*.hprof

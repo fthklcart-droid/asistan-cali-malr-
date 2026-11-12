@@ -105,7 +105,7 @@ object SafetyPolicy {
                 })
                 allowOrConfirm(norm, modelWantsConfirm)
             }
-            CommandIntent.TASK_LIST, CommandIntent.NOTE_SEARCH, CommandIntent.ROUTINE_LIST -> allowOrConfirm(p, modelWantsConfirm)
+            CommandIntent.TASK_LIST, CommandIntent.NOTE_SEARCH, CommandIntent.ROUTINE_LIST, CommandIntent.CAPABILITIES -> allowOrConfirm(p, modelWantsConfirm)
             CommandIntent.TASK_DONE -> {
                 if (p.arg("query") == null) SafetyDecision.Reject("Hangi görevi tamamladığını anlayamadım.") else allowOrConfirm(p, modelWantsConfirm)
             }

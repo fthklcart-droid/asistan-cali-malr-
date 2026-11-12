@@ -52,6 +52,7 @@ enum class CommandIntent(val wire: String) {
     ROUTINE_ADD("routine_add"),
     ROUTINE_LIST("routine_list"),
     ROUTINE_REMOVE("routine_remove"),
+    CAPABILITIES("capabilities"),
     END_SESSION("end_session"),
     STOP("stop"),
     UNKNOWN("unknown");

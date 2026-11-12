@@ -180,6 +180,7 @@ Android Studio (Meerkat+) ya da JDK 17 + Android SDK 36:
 | "Görev ekle: yarın raporu gönder", "Görevlerim neler?", "Rapor görevini tamamla" | Yapılacaklar listesi (PLAN bölmesiyle aynı liste) |
 | "Not al: müşteri cuma günü dönecek", "Notlarımda teklif ara" | Notlar |
 | "Yarın saat 9'da toplantıyı hatırlat", "Her gün saat 8'de ilacımı hatırlat", "Hatırlatıcılarım" | Hatırlatıcı / rutin kurar; zamanı gelince bildirim gelir, uygulama açıksa sesli söyler |
+| "Neler yapabilirsin?", "Sınırların neler?" | Yapabildiklerini ve yapamadıklarını telefonun **o anki** durumundan (izinler, sağlayıcı, erişilebilirlik) üreterek söyler |
 | "Günaydın", "Brifing ver" | Ajan: saat, bugünkü takvim, hafızadaki hedefler ve günün haberleri ile kısa sabah brifingi |
 | "Ajan, cumartesi için sinema seanslarını araştır ve uygunsa takvimime ekle" | Görevi AJAN'a verir; adımlar AJAN bölmesinde izlenir, takvime yazma onaylı |
 
@@ -245,7 +246,7 @@ Kalıcı hafıza (kaydet / hatırla / ara), günlük açılış brifingi, arka p
 
 | Kapsam | Durum |
 |---|---|
-| 103 birim + entegrasyon testi (görevler, notlar, rutin zamanlaması ve sessiz saatler, ajan profilleri ve plan ayrıştırma dahil; önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
+| 106 birim + entegrasyon testi (görevler, notlar, rutin zamanlaması ve sessiz saatler, ajan profilleri ve plan ayrıştırma dahil; önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
 | Android derlemesi, debug APK, `targetSdkVersion 36` ve imza doğrulaması | GitHub Actions'ta |
 | Avatar animasyonları (iki arayüz, tüm durumlar) | Masaüstü Chromium'da ekran görüntüsüyle kontrol edildi |
 
@@ -261,3 +262,13 @@ Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz 
 - Dudak senkronu genliğe dayalıdır, fonem tabanlı değildir.
 - Konuşma tanıma cihazın tanıma hizmetine bağlıdır (çoğunlukla Google); bazı cihazlarda internet ister.
 - Takvime yazma, mesajı otomatik gönderme, sosyal medyada otomatik yayın bilinçli olarak yoktur (onaylı paylaşım ekranı var).
+
+---
+
+## Lisans ve teşekkür
+
+Bu proje **CC BY-NC 4.0** ile lisanslıdır (`LICENSE`): kaynak gösterilerek paylaşılabilir ve değiştirilebilir, ticari kullanım için izin gerekir. Kullanılan kütüphaneler kendi lisanslarındadır (Apache 2.0).
+
+Arka plan ajan görevleri, alıntı doğrulamalı derin araştırma, ajan profilleri, rutin motoru, sessiz saatler, kalıcı hafıza, geri alma ve çalışma anında öz-bilgi fikirleri FatihMakes'in **MARK LVII** masaüstü asistanından esinlenmiştir (CC BY-NC 4.0). O projenin kaynak kodu burada yer almaz; bu, bağımsız bir Kotlin/Android uygulamasıdır.
+
+Kod üzerinde çalışan ajanlar ve katkıcılar için kurallar: `AGENTS.md`.

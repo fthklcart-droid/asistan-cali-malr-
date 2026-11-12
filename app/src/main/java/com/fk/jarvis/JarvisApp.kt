@@ -103,6 +103,7 @@ class JarvisApp : Application() {
             memory = memory, undo = undo, topics = topics, deviceStatus = deviceStatus,
             tasks = tasks, notes = notes, routines = routines,
             onRoutinesChanged = { com.fk.jarvis.service.RoutineScheduler.schedule(this) },
+            capabilities = { com.fk.jarvis.core.SelfKnowledge.describe(selfState()) },
             browser = object : CommandRouter.InAppBrowser {
                 override fun open(url: String) = browser.open(url)
                 override fun search(query: String) = browser.search(query)
@@ -176,4 +177,27 @@ class JarvisApp : Application() {
     }
 
     fun currentProvider(): LLMProvider = ai.current()
+
+    /** Asistanın o anki gerçek durumu (öz-bilgi için). */
+    fun selfState(): com.fk.jarvis.core.SelfKnowledge.State {
+        val p = ai.current()
+        val configured = p.isConfigured
+        return com.fk.jarvis.core.SelfKnowledge.State(
+            assistantName = settings.current.assistantName,
+            providerName = if (configured) p.displayName else null,
+            research = configured && p.supportsResearch,
+            vision = configured && (p.id == "gemini" || p.id == "openai"),
+            liveReady = !secrets.get(AIProviderManager.keyName("gemini")).isNullOrBlank(),
+            mic = permissions.hasMicrophone(),
+            notifications = androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled(),
+            calendarRead = calendar.hasPermission(),
+            calendarWrite = calendar.hasWritePermission(),
+            screenControlBuild = BuildConfig.SCREEN_CONTROL,
+            screenControlOn = BuildConfig.SCREEN_CONTROL && permissions.isAccessibilityEnabled(),
+            ttsReady = tts.status == TextToSpeechEngine.Status.READY,
+            memoryCount = memory.all().size,
+            openTasks = tasks.open().size,
+            routines = routines.all().count { it.enabled },
+        )
+    }
 }

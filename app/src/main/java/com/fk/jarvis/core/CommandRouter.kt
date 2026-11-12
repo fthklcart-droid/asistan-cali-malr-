@@ -25,6 +25,8 @@ class CommandRouter(
     private val routines: com.fk.jarvis.data.RoutineStore? = null,
     /** Rutin listesi değişti: alarm yeniden kurulur. */
     private val onRoutinesChanged: () -> Unit = {},
+    /** Canlı durumdan üretilen öz-bilgi metni. */
+    private val capabilities: (() -> String)? = null,
 ) : CommandExecutor {
 
     /** Uygulama içi tarayıcı (WEB bölmesi). Bağlı değilse false döner ve dış tarayıcı kullanılır. */
@@ -122,6 +124,7 @@ class CommandRouter(
                     else -> t.all().let { l -> if (l.isEmpty()) ok("Şu an takip ettiğim bir konu yok.") else ok("Takip ettiğim konular: ${l.joinToString(", ") { it.name }}.") }
                 }
             }
+            CommandIntent.CAPABILITIES -> capabilities?.let { ok(it()) } ?: fail("Bunu şu an söyleyemiyorum.")
             CommandIntent.TASK_ADD -> {
                 val ts = tasks ?: return RouteResult.Done(false, "Görevler kullanılamıyor.")
                 val t = ts.add(p.arg("title").orEmpty(), p.arg("date"), p.arg("time"), p.arg("priority")?.toIntOrNull() ?: 1, p.arg("project").orEmpty())

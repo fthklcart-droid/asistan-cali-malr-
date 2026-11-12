@@ -240,7 +240,7 @@ class AndroidAgentTools(
     companion object {
         private val BLOCKED = setOf(
             CommandIntent.AGENT_TASK, CommandIntent.RESEARCH, CommandIntent.CHAT, CommandIntent.CLARIFY, CommandIntent.STOP,
-            CommandIntent.END_SESSION, CommandIntent.REPEAT_LAST, CommandIntent.CALENDAR_ADD, CommandIntent.TODAY_AGENDA, CommandIntent.UNKNOWN,
+            CommandIntent.END_SESSION, CommandIntent.REPEAT_LAST, CommandIntent.CALENDAR_ADD, CommandIntent.TODAY_AGENDA, CommandIntent.UNKNOWN, CommandIntent.CAPABILITIES,
         )
     }
 }
