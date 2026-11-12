@@ -17,15 +17,18 @@ Kotlin + Jetpack Compose; avatar WebView içinde Canvas ile çizilir. Hedef: **A
 
 Alt çubuktaki **ARAYÜZ** düğmesi veya Ayarlar > Arayüz ile değişir. Arayüz renkleri seçili avatara uyar (ART'ta neon mavi). Avatar çizim kodu (`app/src/main/assets/avatar/`) bu sürümde değiştirilmedi; yalnızca ses sistemine bağlandı.
 
-**Holografik arayüz:** alt çubukta 6 bölme (ASİSTAN, AJAN, TAKVİM, WEB, UYGULAMA, MENÜ); diğer bölümler MENÜ'den açılır. Bölmeler 3B dönerek geçer, paneller kademeli açılır.
+**Dört rol, tek asistan:** kişisel asistan (ses, hafıza, telefon kontrolü) · iş asistanı (taslaklar, toplantı hazırlığı, notlar, araştırma) · planlayıcı (görevler, takvim, rutinler) · iş yapan ajan (plan çıkarır, araçlarla uygular, rapor verir). Hepsi sesle de kullanılır.
+
+**Holografik arayüz:** alt çubukta 6 bölme (ASİSTAN, PLAN, AJAN, TAKVİM, WEB, MENÜ); diğer bölümler MENÜ'den açılır. Bölmeler 3B dönerek geçer, paneller kademeli açılır.
 
 | Bölme | İçerik |
 |---|---|
 | **ASİSTAN** | Avatar, HUD başlığı (durum, mikrofon, yapay zekâ, oturum ışıkları), canlı metin dökümü, onay/seçim/taslak panelleri, ses seviyesi göstergesi, animasyonlu mikrofon küresi, yazılı komut |
-| **AJAN** | Çok adımlı görev ajanı: görev yaz ya da hazır görev seç (günlük brifing, yarınki programım, açık sayfayı özetle…); adımlar canlı listelenir, onay gereken adımda ONAYLA/REDDET, sonucu sesli okuma, DURDUR |
+| **PLAN** | Bugünün özeti (etkinlik, bugünkü/açık görev sayıları), **görevler** (tarih, öncelik, tamamla), **rutinler ve hatırlatıcılar** (bir kez / her gün / hafta içi / hafta sonu; hatırlat, sesli söyle, ajan görevi), sessiz saatler, **notlar**; GÜNÜMÜ / HAFTAMI PLANLA |
+| **AJAN** | Görev yaz ya da kategorili hazır görev seç (KİŞİSEL, PLANLAMA, İŞ, ARAŞTIRMA). **Profil**: otomatik, GENEL, ARAŞTIRMACI, PLANLAYICI, İŞ ASİSTANI. Önce plan gösterilir, adımlar canlı listelenir, onay gereken adımda ONAYLA/REDDET, DURDUR. Biten görevler **RAPORLAR**'da saklanır (sesli oku, notlara kaydet) |
 | **TAKVİM** | Haftalık şerit, seçili günün etkinlikleri (dokununca takvim uygulamasında açılır), yeni etkinlik formu (başlık, saat, süre, yer) |
 | **WEB** | Uygulama içi tarayıcı: adres/arama çubuğu, geri/ileri/yenile, güvenli bağlantı göstergesi, yapay zekâyla **sayfa özeti**, dış tarayıcıda açma. Asistan ve ajan da bu tarayıcıyı kullanır |
-| **UYGULAMA** | Cihazdaki uygulamalar: arama, hızlı erişim, tek dokunuşla açma |
+| **MENÜ → UYGULAMA** | Cihazdaki uygulamalar: arama, hızlı erişim, tek dokunuşla açma |
 | **MENÜ → SOHBET** | Konuşma geçmişi (yalnızca metin, cihazda), silme |
 | **MENÜ → HAFIZA** | Kalıcı hafıza (kategorilere göre, tek tek/topluca silme, yapay zekâyla paylaşım anahtarı), takip edilen konular, geri alınabilir işlemler |
 | **MENÜ → ARAYÜZ** | Avatar (ART/NEON), animasyon hızı, vurgu rengi (otomatik/mavi/mor/altın/yeşil), geçiş efektleri ve ızgara aç/kapat |
@@ -174,6 +177,9 @@ Android Studio (Meerkat+) ya da JDK 17 + Android SDK 36:
 | "Pil durumu ne?", "Telefonun durumu" | Pil, sıcaklık, bellek, depolama, ağ |
 | "Uzay araştırmaları haberlerini takip et", "Takip listem", "… takibini bırak" | Günde bir kez yeni gelişme aranır, varsa bildirim gelir (kripto/borsa kabul edilmez) |
 | "Kameraya bak ve bu bitki ne", "Ne görüyorsun?" | Kamera uygulaması açılır; çektiğin fotoğraf yapay zekâya sorulur (Gemini veya OpenAI) |
+| "Görev ekle: yarın raporu gönder", "Görevlerim neler?", "Rapor görevini tamamla" | Yapılacaklar listesi (PLAN bölmesiyle aynı liste) |
+| "Not al: müşteri cuma günü dönecek", "Notlarımda teklif ara" | Notlar |
+| "Yarın saat 9'da toplantıyı hatırlat", "Her gün saat 8'de ilacımı hatırlat", "Hatırlatıcılarım" | Hatırlatıcı / rutin kurar; zamanı gelince bildirim gelir, uygulama açıksa sesli söyler |
 | "Günaydın", "Brifing ver" | Ajan: saat, bugünkü takvim, hafızadaki hedefler ve günün haberleri ile kısa sabah brifingi |
 | "Ajan, cumartesi için sinema seanslarını araştır ve uygunsa takvimime ekle" | Görevi AJAN'a verir; adımlar AJAN bölmesinde izlenir, takvime yazma onaylı |
 
@@ -184,6 +190,14 @@ Yalnızca sen *Ayarlar > Erişilebilirlik > SRİUS JARVIS ekran kontrolü*'nü a
 
 ### Ajan nasıl çalışır
 Her adımda yapay zekâ izinli araçlardan birini seçer (internette araştır, tarayıcıda ara/aç/oku, takvimi oku/ekle, hafızaya bak/kaydet, telefon durumu, takip edilen konular, izinli telefon eylemleri), araç **telefonda gerçekten** çalışır ve sonucu yapay zekâya geri verilir; en fazla 8 adım. Web sayfası ve arama metinleri yapay zekâya *veri* olarak verilir, içlerindeki talimatlara uyulmaz. Takvime yazma ve onay gerektiren telefon eylemleri yalnızca ONAYLA'ya basınca yapılır; reddedilen işlem tekrar denenmez. Tüm sağlayıcılarla çalışır (Gemini, OpenAI, Claude, yerel); internet araştırması için Gemini, OpenAI ya da Claude gerekir.
+
+### Ajan profilleri, derin araştırma ve rutinler (Mark LVII uyarlaması)
+- **Profiller** (`agent/AgentRunner.kt` içindeki `AgentProfiles`; Mark LVII'deki `agents/` dosyalarının karşılığı): her profilin araç listesi, adım bütçesi ve talimatı vardır. Yeni profil eklemek için listeye bir kayıt eklemek yeterlidir.
+- **Derin araştırma (ARAŞTIRMACI):** alt soruları planlar, kaynakları uygulama içi tarayıcıda açıp okur; rapora koyacağı alıntıyı `verify_quote` ile **kodda**, gerçekten okunan sayfa metnine karşı denetler. Bulunamayan alıntı "doğrulanamadı" olarak döner.
+- **Raporlar:** biten her görev (başarılı ya da başarısız) cihazda saklanır; uygulama arka plandayken biterse bildirim gelir.
+- **Rutin motoru:** tek alarm en yakın rutine kurulur; telefon yeniden başlayınca yeniden kurulur. Uygulama ekranda değilken rutin yalnızca bildirim gösterir — seslendirme ve ajan görevi bildirime dokununca başlar. Kendiliğinden ajan görevi başlatan rutin sesle kurulurken onay ister. "Tam zamanlı alarm" özel izni istenmediğinden Android bildirimi birkaç dakika geciktirebilir.
+- **Sessiz saatler** (varsayılan 23:00–07:00): tekrarlayan rutinler konuşmaz; belirli bir an için kurulan tek seferlik hatırlatıcı çalışır.
+- Mark LVII'den alınmayanlar: masaüstü denetimi (dosya, pencere, PC ayarları, ekran yakalama), Whisper/Piper/ElevenLabs ses motorları, telefon panosu, eklenti yükleyici, kendiliğinden "yoklama" konuşmaları ve görevlerin yeniden başlatmada kaldığı adımdan sürmesi (Android arka plan kısıtları).
 
 ### Masaüstü JARVIS'ten (main.py) alınanlar
 Kalıcı hafıza (kaydet / hatırla / ara), günlük açılış brifingi, arka planda konu takibi, geri alma, sistem durumu ve görsel analiz Android'e uyarlandı. Alınmayanlar: Windows'a özgü işlemler (alt süreçler, bilgisayar ayarları, ekran yakalama, ses cihazı seçimi) ve "proaktif mod" (kullanıcı sormadan konuşmak; habersiz işlem yapmama kuralı gereği).
@@ -219,6 +233,7 @@ Kalıcı hafıza (kaydet / hatırla / ara), günlük açılış brifingi, arka p
 | `WRITE_CALENDAR` | Yalnızca onayladığın bir etkinlik eklenirken sorulur. Verilmezse takvim uygulamasının "yeni etkinlik" ekranı doldurularak açılır |
 | `INTERNET` | Yapay zekâ sağlayıcıları; bazı cihazlarda konuşma tanıma |
 | `SET_ALARM` | Saat uygulamasında alarm/zamanlayıcı hazırlama |
+| `RECEIVE_BOOT_COMPLETED` | Kurduğun hatırlatıcı/rutin alarmlarını telefon yeniden başlayınca yeniden kurmak |
 
 "Kameraya bak" için kamera izni istenmez: telefonun kamera uygulaması açılır, fotoğrafı sen çekersin; fotoğraf küçültülüp yalnızca seçili yapay zekâ sağlayıcısına gönderilir ve önbellekten silinir. Konu takibi için arka plan işi (WorkManager) yalnızca en az bir konu eklendiğinde, günde bir kez ve internet varken çalışır.
 
@@ -230,12 +245,12 @@ Kalıcı hafıza (kaydet / hatırla / ara), günlük açılış brifingi, arka p
 
 | Kapsam | Durum |
 |---|---|
-| 95 birim + entegrasyon testi (önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
+| 103 birim + entegrasyon testi (görevler, notlar, rutin zamanlaması ve sessiz saatler, ajan profilleri ve plan ayrıştırma dahil; önceki kapsama ek olarak: Türkçe tarih/saat çözümleme, takvime ekleme onayı, ajan döngüsü — araç çağırma, onay/ret, bilinmeyen araç, bozuk JSON, adım sınırı, sağlayıcı hatası —, hafıza kayıt/arama/gizli bilgi reddi/geri alma, konu takibi, yeni sesli komutlar) (Türkçe komut sınıflandırma, güvenlik politikası, uygulama eşleştirme, Gemini/OpenAI/yerel/Claude sağlayıcıları sahte sunucuyla, ses zarfı, ses etkinliği algılama, uyandırma sözcüğü, ajanda metni, çekirdek akış: sesli oturum, araya girme, onay, izin, araştırma, taslak/kopyalama/paylaşım) | Geçti (JVM) — CI'da da çalışır |
 | Android derlemesi, debug APK, `targetSdkVersion 36` ve imza doğrulaması | GitHub Actions'ta |
 | Avatar animasyonları (iki arayüz, tüm durumlar) | Masaüstü Chromium'da ekran görüntüsüyle kontrol edildi |
 
 **Gerçek cihazda TEST EDİLMEDİ** — aşağıdakilerin hepsi Android 16 telefonda doğrulanmalı:
-Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz sohbet ve araya girme (yankı ile yanlış tetikleme) · uyandırma sözcüğü (pil, tanıyıcı sesleri, cihaz içi Türkçe model) · ön plan hizmeti ve bildirim · uygulama açma/YouTube araması/galeri · erişilebilirlik işlemleri ve ekran görüntüsü · takvim okuma · üç bulut sağlayıcısının gerçek API'lerle çalışması (OpenAI Responses API web araması özellikle) · erişilebilirlik üstündeki mikrofon düğmesinin arka planda mikrofon alabilmesi · ajanın gerçek sağlayıcılarla çok adımlı görevleri · takvime yazma (hesaba göre yazılabilir takvim) · uygulama içi tarayıcıda sayfa okuma/özet · konu takibi bildirimi (WorkManager zamanlaması) · kameraya bak (kamera uygulaması ve görüntü analizi).
+Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz sohbet ve araya girme (yankı ile yanlış tetikleme) · uyandırma sözcüğü (pil, tanıyıcı sesleri, cihaz içi Türkçe model) · ön plan hizmeti ve bildirim · uygulama açma/YouTube araması/galeri · erişilebilirlik işlemleri ve ekran görüntüsü · takvim okuma · üç bulut sağlayıcısının gerçek API'lerle çalışması (OpenAI Responses API web araması özellikle) · erişilebilirlik üstündeki mikrofon düğmesinin arka planda mikrofon alabilmesi · ajanın gerçek sağlayıcılarla çok adımlı görevleri · takvime yazma (hesaba göre yazılabilir takvim) · uygulama içi tarayıcıda sayfa okuma/özet · konu takibi bildirimi (WorkManager zamanlaması) · kameraya bak (kamera uygulaması ve görüntü analizi) · rutin/hatırlatıcı alarmlarının zamanında gelmesi (Doze, üretici pil kısıtları, yeniden başlatma) · ajan profillerinin gerçek sağlayıcıyla davranışı ve alıntı doğrulama.
 
 ---
 
