@@ -36,9 +36,20 @@ captures/
 .cxx/
 .externalNativeBuild/
 
+# ── Çeşitli (derleyici ve araç artıkları) ────────────────────────────────────
+*.class
+*.pyc
+.history
+.svn/
+.atom/
+.buildlog/
+/coverage/
+
 # ── Düzenleyiciler ve işletim sistemleri ──────────────────────────────────────
 .idea/
 *.iml
+*.ipr
+*.iws
 .vscode/
 *.swp
 .DS_Store

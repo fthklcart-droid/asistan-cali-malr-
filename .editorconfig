@@ -1,0 +1,34 @@
+# Bu dosya kod biçimini ve statik denetim ayarlarını tanımlar; Android Studio, IntelliJ ve
+# ktlint tarafından otomatik okunur. (Flutter projelerindeki analysis_options.yaml'ın bu
+# Kotlin/Gradle projesindeki karşılığıdır. Derleme denetimleri ayrıca app/build.gradle.kts
+# içindeki "lint { ... }" bloğunda ve CI'daki "Android lint" adımındadır.)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+# Projede uzun, tek satırlık Compose zincirleri ve Türkçe metinler var.
+max_line_length = 200
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+ij_kotlin_imports_layout = *
+# Compose işlevleri büyük harfle başlar.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+[*.{xml,json,yml,yaml,js,html}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[{gradlew,*.sh}]
+end_of_line = lf
+
+[*.bat]
+end_of_line = crlf
