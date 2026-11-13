@@ -268,8 +268,8 @@ Türkçe tanıma/TTS kalitesi · dudak senkronunun avatarla uyumu · kesintisiz 
 
 ## Lisans ve teşekkür
 
-Bu proje **CC BY-NC 4.0** ile lisanslıdır (`LICENSE`): kaynak gösterilerek paylaşılabilir ve değiştirilebilir, ticari kullanım için izin gerekir. Kullanılan kütüphaneler kendi lisanslarındadır (Apache 2.0).
+Bu proje **MIT lisansı** ile lisanslıdır (`LICENSE`): telif ve lisans notu korunarak serbestçe kullanılabilir, değiştirilebilir ve dağıtılabilir. Kullanılan kütüphaneler kendi lisanslarındadır (Apache 2.0).
 
-Arka plan ajan görevleri, alıntı doğrulamalı derin araştırma, ajan profilleri, rutin motoru, sessiz saatler, kalıcı hafıza, geri alma ve çalışma anında öz-bilgi fikirleri FatihMakes'in **MARK LVII** masaüstü asistanından esinlenmiştir (CC BY-NC 4.0). O projenin kaynak kodu burada yer almaz; bu, bağımsız bir Kotlin/Android uygulamasıdır.
+Arka plan ajan görevleri, alıntı doğrulamalı derin araştırma, ajan profilleri, rutin motoru, sessiz saatler, kalıcı hafıza, geri alma, çalışma anında öz-bilgi ve komuta merkezi fikirleri FatihMakes'in **MARK LVII** masaüstü asistanından esinlenmiştir. O projenin kaynak kodu burada yer almaz; bu, bağımsız bir Kotlin/Android uygulamasıdır. (MARK LVII'nin kendisi CC BY-NC 4.0 lisanslıdır: ondan kod ya da dosya alınırsa o lisansın ticari olmayan kullanım koşulu o parçalar için geçerli olur.)
 
 Kod üzerinde çalışan ajanlar ve katkıcılar için kurallar: `AGENTS.md`.
