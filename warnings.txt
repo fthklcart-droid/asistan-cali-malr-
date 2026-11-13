@@ -1,0 +1,60 @@
+11-13 20:48:46.143   562   583 W ziparchive: Unable to open '/data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.dm': No such file or directory
+11-13 20:48:46.826   562  1130 W PackageConfigPersister: App-specific configuration not found for packageName: com.fk.jarvis and userId: 0
+11-13 20:48:47.085   562  1891 W InputManager-JNI: Input channel object '342f72 Splash Screen com.fk.jarvis (client)' was disposed without first being removed with the input manager!
+11-13 20:48:48.860  3112  3117 W com.fk.jarvis: Suspending all threads took: 156.872ms
+11-13 20:48:49.228  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/GoogleTTS/GoogleTTS.apk' with 2 weak references
+11-13 20:48:49.229  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~SmJxstIn0rXPQv1DGW_vNg==/com.google.android.webview-rKeT3KT8Iht9Zh9Wbxb-qg==/WebViewGoogle.apk' with 2 weak references
+11-13 20:48:52.089  3112  3268 W com.fk.jarvis: Long monitor contention with owner ThreadPoolForeg (3265) at org.chromium.net.AndroidCertVerifyResult WV.z00.h(byte[][], java.lang.String, java.lang.String)(chromium-TrichromeWebViewGoogle6432.apk-stable-636771938:245) waiters=0 in org.chromium.net.AndroidCertVerifyResult WV.z00.h(byte[][], java.lang.String, java.lang.String) for 589ms
+11-13 20:48:54.878  1399  1408 W gle.android.gms: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:48:57.738  1190  1198 W s.nexuslauncher: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:49:01.110  1356  1364 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:49:01.309  1483  1534 W ogle.android.as: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:49:10.877  1356  1364 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:49:13.130  1595  3879 W chromium: [1113/204913.129610:WARNING:url_request_context_config.cc(716)] Unrecognized Cronet experimental option "enable_telemetry" with params "false
+11-13 20:49:13.130  1595  3879 W chromium: 
+11-13 20:49:28.644  1096  1105 W ndroid.settings: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:49:32.382  1096  1105 W ndroid.settings: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:49:43.821  1399  1408 W gle.android.gms: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 1 weak references
+11-13 20:50:24.460   562  1548 W ActivityManager: pid 3112 com.fk.jarvis sent binder code 1 with flags 1 to frozen apps and got error -32
+11-13 20:50:52.539   562  1887 W ProcessStats: Tracking association SourceState{238d84c com.google.android.googlequicksearchbox:search/10144 ImpBg #5904} whose proc state 6 is better than process ProcessState{495cbcf com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/10144 pkg=com.google.android.googlequicksearchbox} proc state 14 (0 skipped)
+11-13 20:53:56.408   915   922 W ndroid.systemui: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~3BbTSevoIbTuCWtcpRYAxg==/com.fk.jarvis-FSlbCeuwP44sbK0pjJ9QtA==/base.apk' with 2 weak references
+11-13 20:54:29.874  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Camera2/Camera2.apk' with 1 weak references
+11-13 20:54:29.874  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~Z5MoRkYWyCLdBDohnpeMLQ==/com.android.chrome-Rx-nQgkk3-bOOYmtu0wejA==/Chrome.apk' with 1 weak references
+11-13 20:54:29.875  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/SettingsGoogle/SettingsGoogle.apk' with 1 weak references
+11-13 20:54:29.875  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '/product/overlay/SettingsGoogle__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+11-13 20:54:29.876  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Drive/Drive.apk' with 1 weak references
+11-13 20:54:29.876  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Maps/Maps.apk' with 1 weak references
+11-13 20:54:29.876  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/PrebuiltBugle/PrebuiltBugle.apk' with 1 weak references
+11-13 20:54:29.877  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Photos/Photos.apk' with 1 weak references
+11-13 20:54:29.878  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/YouTubeMusicPrebuilt/YouTubeMusicPrebuilt.apk' with 1 weak references
+11-13 20:54:29.879  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/CalendarGooglePrebuilt/CalendarGooglePrebuilt.apk' with 1 weak references
+11-13 20:54:29.879  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/GoogleContacts/GoogleContacts.apk' with 1 weak references
+11-13 20:54:29.880  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PrebuiltDeskClockGoogle/PrebuiltDeskClockGoogle.apk' with 1 weak references
+11-13 20:54:29.880  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/GoogleDialer/GoogleDialer.apk' with 1 weak references
+11-13 20:54:29.881  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PrebuiltGmail/PrebuiltGmail.apk' with 1 weak references
+11-13 20:54:29.882  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/YouTube/YouTube.apk' with 1 weak references
+11-13 20:54:29.882  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/SafetyHubPrebuilt/SafetyHubPrebuilt.apk' with 1 weak references
+11-13 20:54:29.882  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DocumentsUIGoogle/DocumentsUIGoogle.apk' with 1 weak references
+11-13 20:54:29.883  3112  3119 W com.fk.jarvis: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/Velvet/Velvet.apk' with 1 weak references
+11-13 20:57:57.816   562  1547 W ProcessStats: Tracking association SourceState{238d84c com.google.android.googlequicksearchbox:search/10144 ImpBg #6218} whose proc state 6 is better than process ProcessState{495cbcf com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/10144 pkg=com.google.android.googlequicksearchbox} proc state 14 (0 skipped)
+11-13 20:58:12.585   562   717 W ActivityManager: Scheduling restart of crashed service com.google.android.webview/org.chromium.android_webview.services.MetricsBridgeService in 1000ms for connection
+11-13 21:00:43.181   562   994 W PackageConfigPersister: App-specific configuration not found for packageName: com.fk.jarvis and userId: 0
+11-13 21:00:43.192   562   994 W PackageConfigPersister: App-specific configuration not found for packageName: com.fk.jarvis and userId: 0
+11-13 21:00:45.261   562   681 W InputDispatcher: Dispatching key to ae85a56 com.fk.jarvis/com.fk.jarvis.MainActivity even though there are other unprocessed events
+11-13 21:00:46.132  3112  3112 W InteractionJankMonitor: Initializing without READ_DEVICE_CONFIG permission. enabled=true, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=com.fk.jarvis
+11-13 21:00:56.138   562  2068 W PackageConfigPersister: App-specific configuration not found for packageName: com.fk.jarvis and userId: 0
+11-13 21:01:00.586  3112  3112 E FrameTracker: force finish cuj, time out: J<IME_INSETS_SHOW_ANIMATION::0@1@com.fk.jarvis>
+11-13 21:01:00.586  3112  3112 W FrameTracker: Missed App frame:UNKNOWN: 88, 50759, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@1@com.fk.jarvis>
+11-13 21:01:00.586  3112  3112 W FrameTracker: Missed SF frame:UNKNOWN: 88, 50759, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@1@com.fk.jarvis>
+11-13 21:01:00.586  3112  3112 W FrameTracker: Missed App frame:UNKNOWN: 88, 50790, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@1@com.fk.jarvis>
+11-13 21:01:00.586  3112  3112 W FrameTracker: Missed SF frame:UNKNOWN: 88, 50790, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@1@com.fk.jarvis>
+11-13 21:01:06.047  3112  3112 W FrameTracker: Missed App frame:UNKNOWN: 74, 51990, 0, CUJ=J<IME_INSETS_HIDE_ANIMATION::1@1@com.fk.jarvis>
+11-13 21:01:06.047  3112  3112 W FrameTracker: Missed SF frame:UNKNOWN: 74, 51990, 0, CUJ=J<IME_INSETS_HIDE_ANIMATION::1@1@com.fk.jarvis>
+11-13 21:01:06.047  3112  3112 W FrameTracker: Missed App frame:UNKNOWN: 74, 52020, 0, CUJ=J<IME_INSETS_HIDE_ANIMATION::1@1@com.fk.jarvis>
+11-13 21:01:06.049  3112  3112 W FrameTracker: Missed SF frame:UNKNOWN: 74, 52020, 0, CUJ=J<IME_INSETS_HIDE_ANIMATION::1@1@com.fk.jarvis>
+11-13 21:01:06.049  3112  3112 W FrameTracker: Missed App frame:UNKNOWN: 74, 52028, 0, CUJ=J<IME_INSETS_HIDE_ANIMATION::1@1@com.fk.jarvis>
+11-13 21:01:06.049  3112  3112 W FrameTracker: Missed SF frame:UNKNOWN: 74, 52028, 0, CUJ=J<IME_INSETS_HIDE_ANIMATION::1@1@com.fk.jarvis>
+11-13 21:01:18.715  2334  5912 W chromium: [1113/210118.711590:WARNING:url_request_context_config.cc(722)] Unrecognized Cronet experimental option "enable_telemetry" with params "false
+11-13 21:01:18.715  2334  5912 W chromium: 
+11-13 21:01:27.189   562   586 W ActivityTaskManager: Activity top resumed state loss timeout for ActivityRecord{95b0d57 u0 com.fk.jarvis/.MainActivity t8 f}}
+11-13 21:01:27.195   562   586 W ActivityTaskManager: Activity pause timeout for ActivityRecord{95b0d57 u0 com.fk.jarvis/.MainActivity t8 f}}
