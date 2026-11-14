@@ -143,7 +143,8 @@ say_expect "pil durumu" "Pil yüzde [0-9]+"
 say_expect "neler yapabilirsin" "Şu an yapabildiklerim"
 say_expect "yarın neler var" "Takviminde yarın"
 say_expect "uzay haberlerini takip et" "konusunu takibe aldım"
-say_expect "kotlin diye ara" "tarayıcıda açtım"
+# Arama uygulama içi tarayıcıda açılır ve WEB bölmesine geçilir: adres çubuğunda arama adresi görünmeli.
+say_expect "kotlin diye ara" "google\\.com/search"
 tap_text "ASİSTAN" exact && sleep 2
 # Onay akışı: hafızayı silmek onay ister; ONAYLA'ya basılınca silinir.
 say_expect "hafızanı sil" "tüm bilgileri sileceğim"

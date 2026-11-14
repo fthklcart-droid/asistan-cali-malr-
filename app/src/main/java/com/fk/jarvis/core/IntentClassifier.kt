@@ -79,7 +79,7 @@ class IntentClassifier {
                 val text = n.replace(Regex("\\b(bana |lütfen )?hatırlat(ır mısın|sana|ırsan)?\\b"), " ")
                     .replace(Regex("\\b(her gün|hafta içi|hafta sonu|yarın|bugün|öbür gün|sabah|akşam|öğleden sonra)\\b"), " ")
                     .replace(Regex("saat \\d{1,2}([:.]\\d{2})?( buçuk(ta)?)?('?(de|da|te|ta))?|\\b\\d{1,2}[:.]\\d{2}('?(de|da|te|ta))?"), " ")
-                    .replace(Regex("\\s+"), " ").trim().removeSuffix("'i").removeSuffix("'ı").removeSuffix("'u").removeSuffix("'ü").ifBlank { "Hatırlatma" }
+                    .replace(Regex("\\s+"), " ").trim().removePrefix("için ").removePrefix("de ").removePrefix("da ").trim().removeSuffix("'i").removeSuffix("'ı").removeSuffix("'u").removeSuffix("'ü").ifBlank { "Hatırlatma" }
                 return p(CommandIntent.ROUTINE_ADD, args = buildMap {
                     put("text", text); put("time", "%02d:%02d".format(h, m)); put("action", "remind")
                     when {

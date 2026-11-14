@@ -111,6 +111,7 @@ class PlanningTest {
             assertTrue(it.arg("text")!!, it.arg("text")!!.contains("toplantı"))
         }
         assertEquals("her gün", c.classify("her gün saat 8'de ilacımı hatırlat")!!.arg("repeat"))
+        assertEquals("emülatör testini", c.classify("14:36 için emülatör testini hatırlat")!!.arg("text"))
         assertEquals(CommandIntent.ROUTINE_LIST, c.classify("hatırlatıcılarım")!!.intent)
         // Eski komutlar bozulmadı
         assertEquals(CommandIntent.REMEMBER, c.classify("bunu hatırla: kahveyi şekersiz içerim")!!.intent)
