@@ -27,6 +27,8 @@ class CommandRouter(
     private val onRoutinesChanged: () -> Unit = {},
     /** Canlı durumdan üretilen öz-bilgi metni. */
     private val capabilities: (() -> String)? = null,
+    /** Tam zamanlı alarm izni açık mı (kapalıysa hatırlatıcı kurulurken kullanıcı uyarılır). */
+    private val exactAlarms: () -> Boolean = { true },
 ) : CommandExecutor {
 
     /** Uygulama içi tarayıcı (WEB bölmesi). Bağlı değilse false döner ve dış tarayıcı kullanılır. */
@@ -182,7 +184,8 @@ class CommandRouter(
                     onRoutinesChanged()
                     undo?.push("Rutin: ${saved.title.take(40)}") { rs.remove(saved.id); onRoutinesChanged(); true to "\"${saved.title}\" rutinini kaldırdım." }
                     val what = when (saved.action) { com.fk.jarvis.data.Routine.Action.REMIND -> "Hatırlatıcı kuruldu"; com.fk.jarvis.data.Routine.Action.SAY -> "Rutin kuruldu"; else -> "Ajan rutini kuruldu" }
-                    ok("$what: ${saved.title} — ${saved.scheduleText()}. Bildirim Android'in pil yönetimi nedeniyle birkaç dakika gecikebilir.")
+                    ok("$what: ${saved.title} — ${saved.scheduleText()}." +
+                        if (exactAlarms()) "" else " Tam zamanlı alarm izni kapalı olduğu için bildirim geç gelebilir; PLAN bölmesinden izni açabilirsin.")
                 }
             }
             CommandIntent.ROUTINE_LIST -> {

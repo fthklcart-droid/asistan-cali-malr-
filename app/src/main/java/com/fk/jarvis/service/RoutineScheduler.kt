@@ -25,8 +25,9 @@ import java.time.ZoneId
  * Rutinleri ve hatırlatıcıları zamanında çalıştırır. Her an yalnızca EN YAKIN rutin için tek bir alarm kuruludur;
  * alarm çalınca vadesi gelenler işlenir ve bir sonraki alarm kurulur.
  *
- * Android kuralları: "tam zamanlı alarm" özel izni istenmez; alarm cihaz uykudayken de çalışır ama sistem
- * pil tasarrufu için birkaç dakika geciktirebilir. Uygulama ekranda değilken yalnızca bildirim gösterilir:
+ * Zamanlama: "Alarmlar ve hatırlatıcılar" izni açıksa alarm tam dakikasında çalar. İzin kapalıysa (Android 14+
+ * sürümlerde varsayılan) alarm yine kurulur ama sistem pil tasarrufu için geciktirebilir (uzun süre sonrasına kurulan
+ * hatırlatıcıda bir saate kadar). Uygulama ekranda değilken yalnızca bildirim gösterilir:
  * seslendirme ve ajan görevi, uygulama açıkken ya da bildirime dokununca çalışır (habersiz arka plan işlemi yapılmaz).
  */
 object RoutineScheduler {
@@ -39,6 +40,16 @@ object RoutineScheduler {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
+    /** Tam zamanlı alarm kurulabiliyor mu (Android 12+ sürümlerde kullanıcı izni gerekir). */
+    fun canExact(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 31) return true
+        return runCatching { context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true }.getOrDefault(false)
+    }
+
+    /** "Alarmlar ve hatırlatıcılar" izin ekranını açan intent (Android 12+). */
+    fun exactAlarmSettingsIntent(context: Context): Intent? =
+        if (Build.VERSION.SDK_INT >= 31) Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:" + context.packageName)) else null
+
     /** En yakın rutine alarm kurar; rutin yoksa alarmı kaldırır. */
     fun schedule(context: Context) {
         val app = context.applicationContext as JarvisApp
@@ -48,7 +59,7 @@ object RoutineScheduler {
         if (next == null) { am.cancel(pi); return }
         val at = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         try {
-            if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            if (canExact(context)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
         } catch (e: SecurityException) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)

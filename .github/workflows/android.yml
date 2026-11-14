@@ -160,7 +160,7 @@ jobs:
           profile: pixel_6
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: timeout 1200 bash scripts/smoke_test.sh app/build/outputs/apk/tam/debug/app-tam-debug.apk smoke
+          script: timeout 1680 bash scripts/smoke_test.sh app/build/outputs/apk/tam/debug/app-tam-debug.apk smoke
       - name: Sonuçlar
         if: always()
         uses: actions/upload-artifact@v4

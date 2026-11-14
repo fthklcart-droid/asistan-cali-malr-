@@ -45,7 +45,13 @@ class AssistantCore(
     private val lookCamera: ((String) -> Boolean)? = null,
     /** Yapay zekâya bağlam olarak eklenecek kısa hafıza özeti (hafıza kapalıysa null). */
     private val memoryContext: () -> String? = { null },
+    /** Son konuşma tanıma hatasının teknik ayrıntısı (ör. "ERROR_CLIENT (5)") — hata iletisine eklenir. */
+    private val sttDetail: () -> String? = { null },
 ) {
+    private companion object {
+        const val STT_CLOUD_HINT = "MENÜ → SUNUCU bölmesine Gemini anahtarı girersen sesini Gemini ile tanırım; AYARLAR'dan tanıma motorunu da seçebilirsin."
+    }
+
     private val _ui = MutableStateFlow(AssistantUi())
     val ui: StateFlow<AssistantUi> = _ui.asStateFlow()
 
@@ -142,6 +148,8 @@ class AssistantCore(
         handleUtterance(text.trim())
     }
 
+    private fun detail(): String = sttDetail()?.takeIf { it.isNotBlank() }?.let { " Ayrıntı: $it." } ?: ""
+
     private fun onSttError(e: SttError) {
         when (e) {
             SttError.NO_MATCH, SttError.NO_SPEECH -> {
@@ -159,10 +167,12 @@ class AssistantCore(
                 }
             }
             SttError.PERMISSION -> onMicDenied()
-            SttError.NETWORK -> showError("Konuşma tanıma için internet bağlantısı gerekiyor olabilir. Yazıyla komut verebilirsin.")
-            SttError.BUSY -> showError("Konuşma tanıma hizmeti meşgul. Birkaç saniye sonra tekrar dene.")
-            SttError.UNAVAILABLE -> showError("Konuşma tanıma hizmeti kullanılamıyor.")
-            SttError.OTHER -> showError("Konuşma tanınırken bir hata oluştu.")
+            SttError.NETWORK -> showError("Konuşma tanıma için internet bağlantısı gerekiyor. Bağlantını kontrol et ya da yazıyla komut ver." + detail())
+            SttError.BUSY -> showError("Konuşma tanıma hizmeti meşgul. Birkaç saniye sonra tekrar dene." + detail())
+            SttError.UNAVAILABLE -> showError("Bu telefonda konuşma tanıma hizmeti yok. $STT_CLOUD_HINT")
+            SttError.LANGUAGE -> showError("Telefonun konuşma tanıyıcısında Türkçe yok ya da Türkçe ses paketi indirilmemiş. $STT_CLOUD_HINT" + detail())
+            SttError.AUDIO -> showError("Mikrofona erişemedim; başka bir uygulama mikrofonu kullanıyor olabilir. Onu kapatıp tekrar dene." + detail())
+            SttError.OTHER -> showError("Telefonun konuşma tanıyıcısı hata verdi. $STT_CLOUD_HINT" + detail())
         }
     }
 

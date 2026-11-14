@@ -43,6 +43,8 @@ class JarvisApp : Application() {
         private set
     lateinit var voice: VoiceEngine
         private set
+    lateinit var speech: com.fk.jarvis.voice.SpeechHub
+        private set
     lateinit var tts: TextToSpeechEngine
         private set
     lateinit var apps: AndroidAppController
@@ -85,7 +87,18 @@ class JarvisApp : Application() {
         secrets = SecureKeyStore(this)
         conversations = ConversationManager(this) { settings.current.keepHistory }
         permissions = PermissionManager(this)
-        voice = VoiceEngine(JarvisSpeechRecognizer(this), permissions)
+        // Konuşma tanıma: telefonun tanıyıcısı + (Gemini anahtarı varsa) uygulamanın kendi kaydedicisiyle Gemini yedeği.
+        speech = com.fk.jarvis.voice.SpeechHub(
+            system = JarvisSpeechRecognizer(this),
+            cloud = com.fk.jarvis.voice.CloudSttEngine(
+                scope = appScope,
+                transcribe = { wav, lang -> ai.byId("gemini")!!.transcribe(wav, lang) },
+                ready = { ai.byId("gemini")?.isConfigured == true },
+            ),
+            mode = { settings.current.sttEngine },
+            hasMicPermission = { permissions.hasMicrophone() },
+        )
+        voice = VoiceEngine(speech, permissions)
         tts = TextToSpeechEngine(this).also {
             it.setRate(settings.current.speechRate)
             it.setPitch(settings.current.speechPitch)
@@ -104,6 +117,7 @@ class JarvisApp : Application() {
             tasks = tasks, notes = notes, routines = routines,
             onRoutinesChanged = { com.fk.jarvis.service.RoutineScheduler.schedule(this) },
             capabilities = { com.fk.jarvis.core.SelfKnowledge.describe(selfState()) },
+            exactAlarms = { com.fk.jarvis.service.RoutineScheduler.canExact(this) },
             browser = object : CommandRouter.InAppBrowser {
                 override fun open(url: String) = browser.open(url)
                 override fun search(query: String) = browser.search(query)
@@ -139,6 +153,7 @@ class JarvisApp : Application() {
             startAgent = { goal -> agent.start(goal, fromVoice = true) },
             lookCamera = { q -> cameraLooker?.invoke(q) == true },
             memoryContext = { if (settings.current.memoryEnabled) memory.promptBlock() else null },
+            sttDetail = { speech.lastFailure },
         )
         val tools = com.fk.jarvis.agent.AndroidAgentTools(
             context = this, llm = { ai.current() }, calendar = calendar, browser = browser, executor = router,
@@ -198,6 +213,8 @@ class JarvisApp : Application() {
             memoryCount = memory.all().size,
             openTasks = tasks.open().size,
             routines = routines.all().count { it.enabled },
+            stt = speech.isAvailable,
+            exactAlarms = com.fk.jarvis.service.RoutineScheduler.canExact(this),
         )
     }
 }

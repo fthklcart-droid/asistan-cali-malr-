@@ -68,7 +68,9 @@ class IntentClassifier {
         Regex("^(.{2,}?) (?:görevini |görevi |işini )?(?:tamamla|tamamlandı|tamamladım|bitti|bitirdim|yapıldı|hallettim)$").find(s)?.let {
             if ("görev" in n || "iş" in n.split(' ').map { w -> w.take(2) }) return p(CommandIntent.TASK_DONE, args = mapOf("query" to it.groupValues[1].removeSuffix(" görevini").removeSuffix(" görevi").trim()))
         }
-        Regex("^not(?: al| ekle| et)?[:,]? (.{3,})$").find(n)?.let { return p(CommandIntent.NOTE_ADD, args = mapOf("text" to it.groupValues[1].trim())) }
+        // "not al …" ya da yazılı "not: …". ("not defterini aç" gibi cümleler not sayılmaz.)
+        Regex("^not (?:al|ekle|et) (.{3,})$").find(n)?.let { return p(CommandIntent.NOTE_ADD, args = mapOf("text" to it.groupValues[1].trim())) }
+        Regex("^\\s*not\\s*:\\s*(.{3,})$", RegexOption.IGNORE_CASE).find(raw.trim())?.let { return p(CommandIntent.NOTE_ADD, args = mapOf("text" to it.groupValues[1].trim())) }
         Regex("^notlarımda (.{2,}?) (?:ara|bul|var mı)$").find(n)?.let { return p(CommandIntent.NOTE_SEARCH, args = mapOf("query" to it.groupValues[1].trim())) }
         if (n == "notlarımı oku" || n == "notlarım" || n == "son notlarım") return p(CommandIntent.NOTE_SEARCH, args = mapOf("query" to ""))
         if (Regex("^(rutinlerim|hatırlatıcılarım|rutinlerimi göster|hatırlatıcılarımı göster|kurulu hatırlatıcılar)( neler)?$").matches(n)) return p(CommandIntent.ROUTINE_LIST)

@@ -50,8 +50,9 @@ object SafetyPolicy {
             CommandIntent.CALENDAR_ADD -> {
                 val today = java.time.LocalDate.now()
                 val title = p.arg("title")?.trim()?.take(200) ?: return SafetyDecision.Reject("Etkinliğin adını anlayamadım.")
-                val date = com.fk.jarvis.apps.CalendarText.parseDate(p.arg("date") ?: "bugün", today)
-                    ?: return SafetyDecision.Reject("Etkinliğin tarihini anlayamadım. Örneğin \"yarın saat 15:00\" diyebilirsin.")
+                // Tarih varsayılmaz: model tarihi düşürürse yanlış güne etkinlik önerilmesin.
+                val date = com.fk.jarvis.apps.CalendarText.parseDate(p.arg("date"), today)
+                    ?: return SafetyDecision.Reject("Etkinliğin gününü anlayamadım. Örneğin \"yarın saat 15:00'te diş hekimi randevusu ekle\" diyebilirsin.")
                 val timeRaw = p.arg("time")
                 val time = com.fk.jarvis.apps.CalendarText.parseTime(timeRaw)
                 if (timeRaw != null && time == null) return SafetyDecision.Reject("Etkinliğin saatini anlayamadım.")

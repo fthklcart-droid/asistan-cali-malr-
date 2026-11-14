@@ -6,7 +6,10 @@ data class SttConfig(
     val partialResults: Boolean = true,
 )
 
-enum class SttError { NO_MATCH, NO_SPEECH, PERMISSION, NETWORK, BUSY, UNAVAILABLE, OTHER }
+/**
+ * [LANGUAGE]: tanıyıcıda Türkçe yok / dil paketi indirilmemiş · [AUDIO]: mikrofona erişilemedi (başka uygulama kullanıyor olabilir).
+ */
+enum class SttError { NO_MATCH, NO_SPEECH, PERMISSION, NETWORK, BUSY, UNAVAILABLE, LANGUAGE, AUDIO, OTHER }
 
 interface SttListener {
     fun onReady() {}

@@ -22,6 +22,10 @@ object SelfKnowledge {
         val memoryCount: Int,
         val openTasks: Int,
         val routines: Int,
+        /** Konuşma tanıma (telefon tanıyıcısı ya da Gemini) kullanılabilir mi. */
+        val stt: Boolean = true,
+        /** Tam zamanlı alarm izni (hatırlatıcıların dakikasında gelmesi için). */
+        val exactAlarms: Boolean = true,
     )
 
     fun can(s: State): List<String> = buildList {
@@ -40,6 +44,8 @@ object SelfKnowledge {
 
     fun cannot(s: State): List<String> = buildList {
         if (!s.mic) add("mikrofon izni olmadığı için seni duyamıyorum; yazarak komut verebilirsin")
+        else if (!s.stt) add("bu telefonda konuşma tanıma hizmeti yok; Gemini anahtarı girersen sesini onunla tanırım")
+        if (s.routines > 0 && !s.exactAlarms) add("tam zamanlı alarm izni kapalı olduğu için hatırlatıcılar geç gelebilir; PLAN bölmesinden açabilirsin")
         if (!s.ttsReady) add("Türkçe seslendirme hazır değil; yanıtlarım yalnızca ekranda görünür")
         if (s.providerName == null) add("yapay zekâ sağlayıcısı ayarlı değil; sohbet, araştırma ve ajan için MENÜ'den SUNUCU bölmesine anahtar girmelisin")
         else {

@@ -193,7 +193,14 @@ fun PlanScreen(s: HoloState, a: HoloActions, x: HoloExtras, openAgent: () -> Uni
                 "Bu aralıkta tekrarlayan rutinler konuşmaz ve bildirimi sessiz gelir. Belirli bir an için kurduğun tek seferlik hatırlatıcılar çalışır.",
                 s.settings.quietHours,
             ) { b -> a.updateSettings { it.copy(quietHours = b) } }
-            BodyText("Bildirimler Android'in pil yönetimi nedeniyle birkaç dakika gecikebilir. Uygulama kapalıyken rutinler yalnızca bildirim gösterir; seslendirme ve ajan görevi bildirime dokununca başlar.", size = 11)
+            if (!x.exactAlarms) {
+                Spacer(Modifier.height(6.dp))
+                BodyText("Tam zamanlı alarm izni kapalı: hatırlatıcılar geç gelebilir (Android pil tasarrufu için erteler).", JarvisColors.gold, 12)
+                Spacer(Modifier.height(6.dp))
+                HoloButton("TAM ZAMANLI İZNİ AÇ", accent = JarvisColors.gold, filled = true) { x.requestExactAlarm() }
+                Spacer(Modifier.height(6.dp))
+            }
+            BodyText("Uygulama kapalıyken rutinler yalnızca bildirim gösterir; seslendirme ve ajan görevi bildirime dokununca başlar.", size = 11)
         }
 
         // ---------------------------------------------------------------- NOTLAR

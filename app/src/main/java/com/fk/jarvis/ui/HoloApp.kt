@@ -80,6 +80,8 @@ data class SystemStatus(
     val accessibilityOn: Boolean = false,
     val screenControlBuild: Boolean = true,
     val sttAvailable: Boolean = false,
+    /** Hangi tanıma motorunun kullanıldığı ve varsa son hata. */
+    val sttInfo: String = "",
     val ttsStatus: String = "—",
     val ttsReady: Boolean = false,
     val serviceRunning: Boolean = false,
@@ -155,6 +157,10 @@ fun HoloApp(avatarView: WebView, s: HoloState, a: HoloActions, x: HoloExtras) {
     LaunchedEffect(Unit) { x.browser.showRequests.collect { tabName = Tab.WEB.name } }
     val agentUi by x.agent.ui.collectAsStateWithLifecycle()
     LaunchedEffect(agentUi.runId) { if (agentUi.runId > 0 && agentUi.fromVoice && agentUi.running) tabName = Tab.AGENT.name }
+    // Ajan onay bekliyorsa soru yalnızca AJAN bölmesinde görünür: kullanıcı başka bölmedeyse (ör. ajanın açtığı WEB) oraya geç.
+    LaunchedEffect(agentUi.confirmQuestion) { if (agentUi.confirmQuestion != null) tabName = Tab.AGENT.name }
+    // Ajan tarayıcıyı açıp işini bitirdiyse sonucu göstermek için AJAN bölmesine dön.
+    LaunchedEffect(agentUi.finishedAt) { if (agentUi.finishedAt > 0 && Tab.valueOf(tabName) == Tab.WEB && agentUi.steps.any { it.tool.startsWith("browser_") }) tabName = Tab.AGENT.name }
     // Asistan bir onay ya da seçim isterse soruyu görebilmek için ASİSTAN bölmesine dönülür.
     LaunchedEffect(s.ui.confirmQuestion) { if (s.ui.confirmQuestion != null && tab != Tab.ASSISTANT) tabName = Tab.ASSISTANT.name }
     androidx.activity.compose.BackHandler(enabled = tab != Tab.ASSISTANT) {

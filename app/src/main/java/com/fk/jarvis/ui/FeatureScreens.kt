@@ -88,6 +88,9 @@ class HoloExtras(
     val routines: com.fk.jarvis.data.RoutineStore,
     /** Rutin listesi değişti: alarm yeniden kurulur. */
     val routinesChanged: () -> Unit,
+    /** Tam zamanlı alarm izni açık mı; değilse [requestExactAlarm] sistem izin ekranını açar. */
+    val exactAlarms: Boolean,
+    val requestExactAlarm: () -> Unit,
     /** MERKEZ (komuta merkezi) için cihaz durumu, pano ve yapay zekâ köprüleri. */
     val center: CenterHooks,
     val calendarGranted: Boolean,

@@ -65,7 +65,7 @@ fun SystemScreen(s: HoloState, a: HoloActions) {
         }
 
         HoloPanel(title = "SES SERVİSLERİ") {
-            StatusRow("Konuşma tanıma", if (sys.sttAvailable) "Cihazda tanıma hizmeti var" else "Tanıma hizmeti yok — Google uygulamasını yükle", sys.sttAvailable, null) {}
+            StatusRow("Konuşma tanıma", sys.sttInfo.ifBlank { if (sys.sttAvailable) "Hazır" else "Tanıma yok — MENÜ → SUNUCU'ya Gemini anahtarı gir" }, sys.sttAvailable, null) {}
             StatusRow("Türkçe seslendirme", sys.ttsStatus, sys.ttsReady, if (!sys.ttsReady) "AYARLAR" else null) { a.openTtsSettings() }
             val volOk = sys.mediaVolume > 0
             StatusRow(

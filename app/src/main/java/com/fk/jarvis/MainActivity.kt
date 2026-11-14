@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
 
     // ------------------------------------------------------------ yeni bölmeler (ajan, takvim, tarayıcı, hafıza)
     private var calendarVersion by mutableStateOf(0)
+    private var exactAlarms by mutableStateOf(true)
     private var pageSummary by mutableStateOf<String?>(null)
     private var pageSummaryBusy by mutableStateOf(false)
     private lateinit var browserView: WebView
@@ -220,6 +221,10 @@ class MainActivity : ComponentActivity() {
                         notes = app.notes,
                         routines = app.routines,
                         routinesChanged = { com.fk.jarvis.service.RoutineScheduler.schedule(this@MainActivity) },
+                        exactAlarms = exactAlarms,
+                        requestExactAlarm = {
+                            com.fk.jarvis.service.RoutineScheduler.exactAlarmSettingsIntent(this@MainActivity)?.let { safeStart(it) }
+                        },
                         center = centerHooks,
                         calendarGranted = system.calendarGranted,
                         calendarVersion = calendarVersion,
@@ -446,7 +451,8 @@ class MainActivity : ComponentActivity() {
             calendarGranted = granted(Manifest.permission.READ_CALENDAR),
             accessibilityOn = app.permissions.isAccessibilityEnabled(),
             screenControlBuild = BuildConfig.SCREEN_CONTROL,
-            sttAvailable = SpeechRecognizer.isRecognitionAvailable(this),
+            sttAvailable = app.speech.isAvailable,
+            sttInfo = app.speech.describe(),
             ttsStatus = when (tts) {
                 TextToSpeechEngine.Status.READY -> "Türkçe ses hazır"
                 TextToSpeechEngine.Status.INITIALIZING -> "Başlatılıyor…"
@@ -510,6 +516,12 @@ class MainActivity : ComponentActivity() {
     /** Rutin bildirimine dokunuldu: bekleyen seslendirmeyi yap ya da ajan görevini başlat. */
     private fun handleRoutineIntent(i: Intent?) {
         if (i == null || !app.settings.current.consentAccepted) return
+        // Yalnızca DEBUG derlemede: emülatör işlev testi komutları doğrudan gönderebilsin (yazılı komutla aynı yol).
+        // Yayın (release) APK'sında bu dal derlenmez.
+        if (BuildConfig.DEBUG) i.getStringExtra("jarvis_test_command_b64")?.let { b64 ->
+            i.removeExtra("jarvis_test_command_b64")
+            runCatching { String(android.util.Base64.decode(b64, android.util.Base64.DEFAULT), Charsets.UTF_8) }.getOrNull()?.let { app.core.submitText(it) }
+        }
         i.getStringExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_SAY)?.let { app.core.speak("Hatırlatma: $it") }
         i.getStringExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_TASK)?.let { if (!app.agent.start(it, fromVoice = true)) toast("Başka bir ajan görevi çalışıyor.") }
         i.removeExtra(com.fk.jarvis.service.RoutineScheduler.EXTRA_SAY)
@@ -519,6 +531,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         app.uiVisible = true
+        exactAlarms = com.fk.jarvis.service.RoutineScheduler.canExact(this)
         // Uygulama kapalıyken zamanı gelmiş rutin varsa şimdi çalıştır ve alarmı yenile.
         if (app.settings.current.consentAccepted) com.fk.jarvis.service.RoutineScheduler.runDue(this)
     }

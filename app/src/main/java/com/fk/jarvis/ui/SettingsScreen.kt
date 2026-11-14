@@ -39,6 +39,27 @@ fun SettingsScreen(s: HoloState, a: HoloActions) {
             HoloButton("KAYDET", filled = true) { a.updateSettings { it.copy(assistantName = name.ifBlank { "JARVIS" }) } }
         }
 
+        HoloPanel(title = "KONUŞMA TANIMA") {
+            FieldLabel("TANIMA MOTORU")
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("auto" to "OTOMATİK", "system" to "TELEFON", "gemini" to "GEMİNİ").forEach { (id, label) ->
+                    HoloChip(label, active = st.sttEngine == id) { a.updateSettings { it.copy(sttEngine = id) }; a.refreshSystem() }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            BodyText(
+                when (st.sttEngine) {
+                    "system" -> "Yalnızca telefonun kendi konuşma tanıyıcısı kullanılır."
+                    "gemini" -> "Sesini uygulama kendisi kaydeder ve yazıya dökülmesi için Gemini'ye gönderir (Gemini anahtarı gerekir). Telefonun tanıyıcısı hiç kullanılmaz."
+                    else -> "Önce telefonun tanıyıcısı denenir. Hata verirse (Türkçe paketi yok, hizmet bozuk) aynı anda Gemini'ye geçilir."
+                }, size = 12,
+            )
+            Spacer(Modifier.height(4.dp))
+            BodyText("Şu an: ${s.system.sttInfo.ifBlank { "—" }}", JarvisColors.text, 12)
+            BodyText("Gemini ile tanımada ses kaydın yazıya dökülmek üzere Google'ın Gemini API'sine gönderilir; telefonda saklanmaz.", size = 11)
+        }
+
         HoloPanel(title = "SESLİ ETKİLEŞİM") {
             HoloSwitchRow("Kesintisiz sohbet", "Yanıttan sonra otomatik olarak yeniden dinler", st.conversationMode) { b -> a.updateSettings { it.copy(conversationMode = b) } }
             HoloSwitchRow("Araya girme (barge-in)", "Asistan konuşurken konuşursan susar ve seni dinler. Kulaklıkla en iyisi.", st.bargeIn) { b -> a.updateSettings { it.copy(bargeIn = b) } }

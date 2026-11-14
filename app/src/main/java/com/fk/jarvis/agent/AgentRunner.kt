@@ -245,7 +245,7 @@ class AgentRunner(
             val tool = o.optString("tool").trim().lowercase()
             if (tool.isEmpty()) return null
             val args = o.optJSONObject("args") ?: JSONObject()
-            val plan = o.optJSONArray("plan")?.let { a -> (0 until minOf(a.length(), 8)).map { a.optString(it).take(160) }.filter { it.isNotBlank() } } ?: emptyList()
+            val plan = o.optJSONArray("plan")?.let { a -> (0 until minOf(a.length(), 8)).map { a.optString(it).replace(Regex("^\\s*\\d+[.)]\\s*"), "").take(160) }.filter { it.isNotBlank() } } ?: emptyList()
             return AgentAction(o.optString("thought").take(400), tool, args, o.optString("say").take(300), plan)
         }
 

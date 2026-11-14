@@ -18,6 +18,10 @@ class GeminiAIService(
     private val baseUrlProvider: () -> String? = { null },
     // Sesli asistan: yoğun/yanıtsız modelde uzun süre beklemek yerine hızla yedek modele geçilir.
     private val httpSupport: HttpSupport = HttpSupport(maxRetries = 0, callTimeoutSec = 25),
+    /** Sesli yanıt bu süreden uzun sürerse model bir süre geri plana alınır. */
+    private val slowMs: Long = 6000,
+    /** Tüm modeller kota hatası verince ikinci tur öncesi bekleme (0: ikinci tur yok). */
+    private val quotaRetryDelayMs: Long = 5000,
 ) : LLMProvider {
 
     /** Testler ve geriye dönük uyumluluk için sabit adresli kurucu. */
@@ -26,7 +30,8 @@ class GeminiAIService(
         modelProvider: () -> String,
         baseUrl: String,
         retryBaseDelayMs: Long = 1000,
-    ) : this(apiKeyProvider, modelProvider, { "JARVIS" }, { baseUrl }, HttpSupport(maxRetries = 0, retryBaseDelayMs = retryBaseDelayMs))
+        slowMs: Long = 6000,
+    ) : this(apiKeyProvider, modelProvider, { "JARVIS" }, { baseUrl }, HttpSupport(maxRetries = 0, retryBaseDelayMs = retryBaseDelayMs), slowMs, retryBaseDelayMs)
 
     override val id = "gemini"
     override val displayName = "Google Gemini"
@@ -53,47 +58,85 @@ class GeminiAIService(
     }
 
     /**
-     * Model sağlığı: yoğun (503), yanıtsız, kotası dolmuş ya da bulunamayan model [FALLBACK_HOLD_MS] boyunca atlanır
-     * ve sıradaki yedek modele geçilir. Süre dolunca seçili model yeniden denenir.
+     * Model sağlığı ve hızı:
+     * - Yoğun (503), yanıtsız, kotası dolmuş ya da bulunamayan model [FALLBACK_HOLD_MS] boyunca sona atılır; yeniden
+     *   başarılı olduğu an işareti kalkar (aksi hâlde hepsi bir kez hata verince sıra başa dönüp her istekte yine
+     *   çalışmayan ilk model beklenirdi).
+     * - Sesli yanıt isteğinde [slowMs]'ten uzun süren model [SLOW_HOLD_MS] boyunca hızlı olanların arkasına alınır.
+     * - Tüm modeller kota hatası verirse (dakikalık sınır) kısa bir bekleyişten sonra bir tur daha denenir.
      */
     private val badUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val slowUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    @Volatile private var lastGood: String? = null
     @Volatile private var thinkingRejected = false
     @Volatile private var currentModel: String? = null
 
     private fun selectedModel() = modelProvider().trim().ifEmpty { DEFAULT_MODEL }
     private fun activeModel(): String = currentModel ?: selectedModel()
 
-    /** Denenecek modeller: önce seçili model, sonra yedekler; sorunlu işaretlenenler sona atılır. */
-    private fun candidates(): List<String> {
+    /** Denenecek modeller: sağlıklı ve hızlı olanlar (seçili model önce), sonra yavaşlar, en sonda sorunlular. */
+    private fun candidates(preferred: List<String>?): List<String> {
         val now = System.currentTimeMillis()
-        val all = (listOf(selectedModel()) + FALLBACK_MODELS).distinct()
-        val (healthy, sick) = all.partition { (badUntil[it] ?: 0L) <= now }
-        return healthy + sick
+        val all = (preferred ?: (listOf(selectedModel()) + FALLBACK_MODELS)).distinct()
+        val healthy = all.filter { (badUntil[it] ?: 0L) <= now }
+        val fast = healthy.filter { (slowUntil[it] ?: 0L) <= now }
+        val slow = healthy.filter { it !in fast }
+        val sick = all.filter { it !in healthy }.sortedBy { if (it == lastGood) Long.MIN_VALUE else (badUntil[it] ?: 0L) }
+        return fast + slow + sick
     }
 
-    /** Sırayla modelleri dener; düşünme ayarı reddedilirse aynı modelde onsuz bir kez daha dener. */
-    private suspend fun <T> withFallbacks(block: suspend () -> T): T {
+    /**
+     * Sırayla modelleri dener; düşünme ayarı reddedilirse aynı modelde onsuz bir kez daha dener.
+     * @param interactive sesli yanıt isteği: yavaş kalan model sonraki isteklerde geri plana alınır.
+     */
+    private suspend fun <T> withFallbacks(interactive: Boolean = false, models: List<String>? = null, block: suspend () -> T): T {
         var last: LlmException? = null
-        for (m in candidates()) {
-            currentModel = m
-            try {
-                return try { block() } catch (e: LlmException) {
-                    if (e.kind == LlmException.Kind.BAD_REQUEST && !thinkingRejected && (e.detail ?: "").contains("think", true)) {
-                        thinkingRejected = true; block()
-                    } else throw e
+        for (round in 0..1) {
+            for (m in candidates(models)) {
+                currentModel = m
+                val t0 = System.nanoTime()
+                try {
+                    val r = try { block() } catch (e: LlmException) {
+                        if (e.kind == LlmException.Kind.BAD_REQUEST && !thinkingRejected && (e.detail ?: "").contains("think", true)) {
+                            thinkingRejected = true; block()
+                        } else throw e
+                    }
+                    badUntil.remove(m); lastGood = m
+                    if (interactive) {
+                        val ms = (System.nanoTime() - t0) / 1_000_000
+                        if (ms > slowMs) slowUntil[m] = System.currentTimeMillis() + SLOW_HOLD_MS else slowUntil.remove(m)
+                    }
+                    return r
+                } catch (e: LlmException) {
+                    last = e
+                    if (e.kind !in FALLBACK_KINDS) throw e
+                    badUntil[m] = System.currentTimeMillis() + FALLBACK_HOLD_MS
+                } finally {
+                    currentModel = null
                 }
-            } catch (e: LlmException) {
-                last = e
-                if (e.kind !in FALLBACK_KINDS) throw e
-                badUntil[m] = System.currentTimeMillis() + FALLBACK_HOLD_MS
-            } finally {
-                currentModel = null
             }
+            if (round == 0 && last?.kind == LlmException.Kind.QUOTA && quotaRetryDelayMs > 0) kotlinx.coroutines.delay(quotaRetryDelayMs) else break
         }
         throw last ?: LlmException(LlmException.Kind.BAD_RESPONSE, "no model")
     }
 
-    override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>): CommandProposal = withFallbacks {
+    override suspend fun transcribe(wav: ByteArray, languageTag: String): String = withFallbacks(models = TRANSCRIBE_MODELS) {
+        val headers = headers()
+        val parts = JSONArray()
+            .put(JSONObject().put("inline_data", JSONObject().put("mime_type", "audio/wav").put("data", java.util.Base64.getEncoder().encodeToString(wav))))
+            .put(JSONObject().put("text", AssistantPrompt.transcribeInstruction(languageTag)))
+        val body = JSONObject()
+            .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", parts)))
+            .put("generationConfig", JSONObject().put("maxOutputTokens", 1024).put("temperature", 0).also { thinking(it) })
+            .toString()
+        val root = try { JSONObject(httpSupport.postJson(endpoint(), headers, body)) } catch (e: org.json.JSONException) { throw LlmException(LlmException.Kind.BAD_RESPONSE, "not json", e) }
+        // Boş aday (ör. sessizlik) hata değil: konuşma yok demektir.
+        val text = try { extractText(root) } catch (e: LlmException) { if (e.kind == LlmException.Kind.BAD_RESPONSE) "" else throw e }
+        // Sessizlik/gürültüde model bazen anlamsız kısa çıktı üretir ("00", "..."): harf içermeyen döküm konuşma sayılmaz.
+        text.trim().trim('"').let { if (it.contains(AssistantPrompt.NO_SPEECH_MARK) || it.none { c -> c.isLetter() }) "" else it }
+    }
+
+    override suspend fun propose(userText: String, history: List<ChatTurn>, context: Map<String, String>): CommandProposal = withFallbacks(interactive = true) {
         val headers = headers()
         val raw = httpSupport.postJson(endpoint(), headers, buildRequestBody(userText, history, context))
         parseResponse(raw)
@@ -210,6 +253,9 @@ class GeminiAIService(
         val FALLBACK_MODELS = listOf("gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview")
         const val FALLBACK_MODEL = "gemini-3.5-flash"
         const val FALLBACK_HOLD_MS = 30 * 60 * 1000L
+        const val SLOW_HOLD_MS = 10 * 60 * 1000L
+        /** Yazıya dökme kısa ve basit bir iştir: en hızlı modelden başlanır. */
+        val TRANSCRIBE_MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview")
         private val FALLBACK_KINDS = setOf(
             LlmException.Kind.MODEL_NOT_FOUND, LlmException.Kind.SERVER, LlmException.Kind.TIMEOUT, LlmException.Kind.QUOTA,
         )

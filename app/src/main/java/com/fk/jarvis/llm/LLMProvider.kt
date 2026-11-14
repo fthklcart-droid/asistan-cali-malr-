@@ -61,6 +61,11 @@ interface LLMProvider {
     suspend fun vision(question: String, jpeg: ByteArray): String =
         throw LlmException(LlmException.Kind.NO_VISION, "vision not supported")
 
+    /** Ses kaydını (WAV, 16 kHz mono) yazıya döker. Konuşma yoksa boş metin döner. */
+    @Throws(LlmException::class)
+    suspend fun transcribe(wav: ByteArray, languageTag: String = "tr-TR"): String =
+        throw LlmException(LlmException.Kind.NOT_CONFIGURED, "transcribe not supported")
+
     @Throws(LlmException::class)
     suspend fun completeJson(system: String, user: String): String =
         throw LlmException(LlmException.Kind.NOT_CONFIGURED, "completeJson not supported")

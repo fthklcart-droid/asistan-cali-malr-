@@ -109,6 +109,70 @@ adb shell input keyevent KEYCODE_BACK; sleep 1
 tap_text "KONUŞ" exact && sleep 5 && shot "${i}_konus"; i=$((i + 1))
 adb shell input keyevent KEYCODE_BACK; sleep 2
 
+# ---------------------------------------------------------------------------------------------
+# İŞLEV TESTLERİ: komutlar uygulamanın yazılı komut yoluna gönderilir (DEBUG derlemedeki test kancası),
+# yanıtın ekranda göründüğü doğrulanır. Yapay zekâ gerektirmeyen, cihaz içinde çalışan özellikleri sınar.
+# Sonuçlar functional.txt dosyasına yazılır; biri bile kalırsa test başarısız olur.
+# ---------------------------------------------------------------------------------------------
+RES="$OUT/functional.txt"; : > "$RES"
+dump_ui() { timeout 25 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml "$OUT/ui.xml" >/dev/null 2>&1; }
+# $1: komut (tek tırnak içermemeli)  $2: ekranda beklenen metin (genişletilmiş düzenli ifade)
+say_expect() {
+  # Türkçe karakterler adb kabuğunda bozulmasın diye komut base64 ile taşınır.
+  adb shell "am start -n $PKG/.MainActivity --es jarvis_test_command_b64 '$(printf '%s' "$1" | base64 -w0)'" >/dev/null 2>&1
+  local ok=0
+  for t in 1 2 3 4 5 6 7; do
+    sleep 2; dump_ui
+    if grep -qE "$2" "$OUT/ui.xml" 2>/dev/null; then ok=1; break; fi
+  done
+  if [ $ok = 1 ]; then echo "GEÇTİ | $1  →  $2" >> "$RES"; log "işlev GEÇTİ: $1"
+  else echo "KALDI | $1  →  beklenen: $2" >> "$RES"; log "işlev KALDI: $1 (beklenen: $2)"; FAIL=1; shot "kaldi_$(echo "$1" | tr -c 'a-zA-Z0-9' '_' | cut -c1-30)"; fi
+}
+log "işlev testleri"
+tap_text "ASİSTAN" exact && sleep 2
+say_expect "saat kaç" "Saat [0-9]{2}:[0-9]{2}"
+say_expect "görev ekle: süt al" "Görevlerine ekledim: süt al"
+say_expect "görev ekle: yarın raporu gönder" "Görevlerine ekledim: raporu gönder \\(yarın\\)"
+say_expect "görevlerim neler" "Açık görevlerin \\(2\\)"
+say_expect "süt al görevini tamamla" "tamamlandı olarak işaretledim"
+say_expect "geri al" "görevini yeniden açtım"
+say_expect "not al emülatör testi notu" "Not aldım"
+say_expect "bunu hatırla: en sevdiğim renk lacivert" "hatırlayacağım: en sevdiğim renk lacivert"
+say_expect "benim hakkımda ne biliyorsun" "Hatırladıklarım: en sevdiğim renk lacivert"
+say_expect "pil durumu" "Pil yüzde [0-9]+"
+say_expect "neler yapabilirsin" "Şu an yapabildiklerim"
+say_expect "yarın neler var" "Takviminde yarın"
+say_expect "uzay haberlerini takip et" "konusunu takibe aldım"
+say_expect "kotlin diye ara" "tarayıcıda açtım"
+tap_text "ASİSTAN" exact && sleep 2
+# Onay akışı: hafızayı silmek onay ister; ONAYLA'ya basılınca silinir.
+say_expect "hafızanı sil" "tüm bilgileri sileceğim"
+if tap_text "ONAYLA" exact; then
+  sleep 3; dump_ui
+  if grep -qE "bilgiyi hafızamdan sildim" "$OUT/ui.xml"; then echo "GEÇTİ | onay → hafıza silindi" >> "$RES"; else echo "KALDI | onay → hafıza silinmedi" >> "$RES"; FAIL=1; fi
+else echo "KALDI | ONAYLA düğmesi bulunamadı" >> "$RES"; FAIL=1; fi
+shot "${i}_islev"; i=$((i + 1))
+
+# Hatırlatıcı: ~2 dakika sonrasına kur, uygulamayı arka plana al, bildirimin geldiğini doğrula.
+adb shell appops set $PKG SCHEDULE_EXACT_ALARM allow >/dev/null 2>&1 || true
+NOW=$(adb shell date +%s | tr -d '\r'); AT=$((NOW + 130)); HHMM=$(adb shell date -d "@$AT" +%H:%M | tr -d '\r')
+log "hatırlatıcı $HHMM için kuruluyor (cihaz saati: $(adb shell date +%H:%M:%S | tr -d '\r'))"
+say_expect "$HHMM için emülatör testini hatırlat" "Hatırlatıcı kuruldu"
+tap_text "PLAN" exact && sleep 3 && shot "${i}_plan_dolu"; i=$((i + 1))
+adb shell input keyevent KEYCODE_HOME
+GOT=0
+for t in $(seq 1 40); do
+  sleep 5
+  if adb shell dumpsys notification --noredact 2>/dev/null | grep -q "Hatırlatma: "; then GOT=1; break; fi
+done
+LATE=$(( $(adb shell date +%s | tr -d '\r') - (AT - AT % 60) ))
+if [ $GOT = 1 ]; then echo "GEÇTİ | hatırlatıcı bildirimi geldi (uygulama arka plandayken; hedef dakikanın başına göre ${LATE} sn)" >> "$RES"; log "hatırlatıcı bildirimi geldi"
+else echo "KALDI | hatırlatıcı bildirimi 200 sn içinde gelmedi" >> "$RES"; log "hatırlatıcı bildirimi GELMEDİ"; FAIL=1; fi
+adb shell cmd statusbar expand-notifications >/dev/null 2>&1; sleep 2; shot "${i}_bildirim"; i=$((i + 1))
+adb shell cmd statusbar collapse >/dev/null 2>&1
+timeout 60 adb shell am start -W -n $PKG/.MainActivity >/dev/null 2>&1; sleep 3
+log "işlev sonuçları:"; cat "$RES"
+
 log "çökme denetimi"
 adb logcat -d > "$OUT/logcat.txt"
 grep -n -A 30 "FATAL EXCEPTION" "$OUT/logcat.txt" | grep -B2 -A30 "$PKG" > "$OUT/crash.txt" || true

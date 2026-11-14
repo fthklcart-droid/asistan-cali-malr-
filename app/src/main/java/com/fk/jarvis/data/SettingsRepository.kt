@@ -47,6 +47,8 @@ data class AssistantSettings(
     val avatarHolo3d: Boolean = true,
     /** Kalıcı hafızanın kısa özeti yapay zekâ isteklerine bağlam olarak eklensin mi. */
     val memoryEnabled: Boolean = true,
+    /** Konuşma tanıma motoru: "auto" (telefon, hata verirse Gemini) · "system" (yalnızca telefon) · "gemini" (her zaman Gemini). */
+    val sttEngine: String = "auto",
     /** Sessiz saatler: bu aralıkta tekrarlayan rutinler konuşmaz (tek seferlik hatırlatıcılar çalışır). */
     val quietHours: Boolean = true,
     val quietStart: String = "23:00",
@@ -93,6 +95,7 @@ class SettingsRepository(context: Context) {
             uiGrid = prefs.getBoolean("ui_grid", d.uiGrid),
             avatarHolo3d = prefs.getBoolean("avatar_holo3d", d.avatarHolo3d),
             memoryEnabled = prefs.getBoolean("memory_enabled", d.memoryEnabled),
+            sttEngine = prefs.getString("stt_engine", d.sttEngine) ?: d.sttEngine,
             quietHours = prefs.getBoolean("quiet_hours", d.quietHours),
             quietStart = prefs.getString("quiet_start", d.quietStart) ?: d.quietStart,
             quietEnd = prefs.getString("quiet_end", d.quietEnd) ?: d.quietEnd,
@@ -125,6 +128,7 @@ class SettingsRepository(context: Context) {
             .putBoolean("ui_grid", s.uiGrid)
             .putBoolean("avatar_holo3d", s.avatarHolo3d)
             .putBoolean("memory_enabled", s.memoryEnabled)
+            .putString("stt_engine", s.sttEngine)
             .putBoolean("quiet_hours", s.quietHours)
             .putString("quiet_start", s.quietStart)
             .putString("quiet_end", s.quietEnd)

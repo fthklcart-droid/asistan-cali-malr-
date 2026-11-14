@@ -5,6 +5,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.log10
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
@@ -115,6 +116,73 @@ class VadGate(
             val rms = sqrt(sum / count)
             return if (rms < 1.0) 0f else (20 * log10(rms)).toFloat()
         }
+    }
+}
+
+/**
+ * Kendi kaydedicimiz (bulut tanıyıcı) için uç nokta belirleyici: konuşmanın başladığını, bittiğini (sessizlik),
+ * hiç başlamadığını ya da çok uzadığını kare kare (varsayılan 20 ms) verilen ses düzeyinden çıkarır.
+ * Gürültü tabanı en düşük düzeyi izler; böylece kullanıcı düğmeye basar basmaz konuşsa da başlangıç kaçmaz.
+ */
+class Endpointer(
+    private val frameMs: Int = 20,
+    private val silenceMs: Int = 1500,
+    private val noSpeechMs: Int = 7000,
+    private val maxMs: Int = 25_000,
+    private val startFrames: Int = 5,
+    private val marginDb: Float = 11f,
+    private val absoluteFloorDb: Float = 40f,
+    private val noiseCapDb: Float = 52f,
+) {
+    enum class Event { NONE, SPEECH_START, END_OF_SPEECH, NO_SPEECH, MAX_LENGTH }
+
+    var heardSpeech = false
+        private set
+    /** Konuşmanın başladığı an (ms, kaydın başından). */
+    var speechStartMs = 0
+        private set
+    var elapsedMs = 0
+        private set
+    private var noiseDb = -1f
+    private var run = 0
+    private var quietMs = 0
+
+    fun offer(levelDb: Float): Event {
+        elapsedMs += frameMs
+        noiseDb = if (noiseDb < 0) min(levelDb, noiseCapDb) else noiseDb
+        val voiced = levelDb >= max(noiseDb + marginDb, absoluteFloorDb)
+        if (!heardSpeech) {
+            // Taban: düşük düzeye hemen iner, yukarı çok yavaş çıkar (saniyede ~2,5 dB).
+            noiseDb = min(noiseCapDb, if (levelDb < noiseDb) levelDb else noiseDb + 0.05f)
+            run = if (voiced) run + 1 else 0
+            if (run >= startFrames) {
+                heardSpeech = true; quietMs = 0
+                speechStartMs = (elapsedMs - run * frameMs).coerceAtLeast(0)
+                return Event.SPEECH_START
+            }
+            return if (elapsedMs >= noSpeechMs) Event.NO_SPEECH else Event.NONE
+        }
+        if (voiced) quietMs = 0 else {
+            quietMs += frameMs
+            noiseDb = min(noiseCapDb, noiseDb * 0.95f + levelDb * 0.05f)
+        }
+        return when {
+            quietMs >= silenceMs -> Event.END_OF_SPEECH
+            elapsedMs >= maxMs -> Event.MAX_LENGTH
+            else -> Event.NONE
+        }
+    }
+}
+
+/** Ham PCM16 mono sesi WAV dosyası baytlarına çevirir. */
+object WavEncoder {
+    fun pcm16Mono(pcm: ByteArray, length: Int = pcm.size, sampleRate: Int = 16_000): ByteArray {
+        val n = length.coerceIn(0, pcm.size)
+        val b = java.nio.ByteBuffer.allocate(44 + n).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        b.put("RIFF".toByteArray(Charsets.US_ASCII)).putInt(36 + n).put("WAVE".toByteArray(Charsets.US_ASCII))
+        b.put("fmt ".toByteArray(Charsets.US_ASCII)).putInt(16).putShort(1).putShort(1).putInt(sampleRate).putInt(sampleRate * 2).putShort(2).putShort(16)
+        b.put("data".toByteArray(Charsets.US_ASCII)).putInt(n).put(pcm, 0, n)
+        return b.array()
     }
 }
 
