@@ -1,0 +1,18 @@
+GEÇTİ | saat kaç  →  Saat [0-9]{2}:[0-9]{2}
+GEÇTİ | görev ekle: süt al  →  Görevlerine ekledim: süt al
+GEÇTİ | görev ekle: yarın raporu gönder  →  Görevlerine ekledim: raporu gönder \(yarın\)
+GEÇTİ | görevlerim neler  →  Açık görevlerin \(2\)
+GEÇTİ | süt al görevini tamamla  →  tamamlandı olarak işaretledim
+GEÇTİ | geri al  →  görevini yeniden açtım
+GEÇTİ | not al emülatör testi notu  →  Not aldım
+GEÇTİ | bunu hatırla: en sevdiğim renk lacivert  →  hatırlayacağım: en sevdiğim renk lacivert
+GEÇTİ | benim hakkımda ne biliyorsun  →  Hatırladıklarım: en sevdiğim renk lacivert
+GEÇTİ | pil durumu  →  Pil yüzde [0-9]+
+GEÇTİ | neler yapabilirsin  →  Şu an yapabildiklerim
+GEÇTİ | yarın neler var  →  Takviminde yarın
+GEÇTİ | uzay haberlerini takip et  →  konusunu takibe aldım
+KALDI | kotlin diye ara  →  beklenen: google\.com/search
+GEÇTİ | hafızanı sil  →  tüm bilgileri sileceğim
+GEÇTİ | onay → hafıza silindi
+GEÇTİ | 15:21 için emülatör testini hatırlat  →  Hatırlatıcı kuruldu
+GEÇTİ | hatırlatıcı bildirimi geldi (uygulama arka plandayken; hedef dakikanın başına göre 1 sn)
